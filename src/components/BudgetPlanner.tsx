@@ -1,7 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { BudgetItem, EventCategory } from '../types';
+import { budgetToCsv } from '../utils/csv';
 import {
   analyzeBudgetAgainstBenchmarks,
+  checkAccessibilityFunding,
   classifyCategory,
   INDUSTRY_BENCHMARKS,
   BudgetWarning,
@@ -38,8 +40,12 @@ export const BudgetPlanner: React.FC<BudgetPlannerProps> = ({
   const totalAllocated = budgetItems.reduce((acc, item) => acc + item.amount, 0);
   const balanceRemaining = totalBudget - totalAllocated;
   const accessibilitySpecificTotal = budgetItems
-    .filter((b) => b.priority !== 'Base')
+    .filter((b) => classifyCategory(b.category) === 'accessibility')
     .reduce((acc, item) => acc + item.amount, 0);
+  const fundingGap = useMemo(
+    () => checkAccessibilityFunding(budgetItems, totalBudget, eventType),
+    [budgetItems, totalBudget, eventType]
+  );
 
   // Industry average benchmark warnings analysis
   const allWarnings = useMemo(() => {
@@ -131,7 +137,7 @@ export const BudgetPlanner: React.FC<BudgetPlannerProps> = ({
     const newItem: BudgetItem = {
       id: `b-${Date.now()}`,
       category: newCategory.trim(),
-      amount: parseInt(newAmount) || 0,
+      amount: Math.max(0, parseInt(newAmount, 10) || 0),
       priority: newPriority,
       notes: newNotes.trim() || 'Custom budget item',
       status: 'Estimated',
@@ -168,24 +174,15 @@ export const BudgetPlanner: React.FC<BudgetPlannerProps> = ({
   };
 
   const exportCSV = () => {
-    const headers = ['Category', 'Amount', 'Priority', 'Status', 'Notes'];
-    const rows = budgetItems.map((b) => [
-      `"${b.category.replace(/"/g, '""')}"`,
-      b.amount,
-      b.priority,
-      b.status,
-      `"${b.notes.replace(/"/g, '""')}"`,
-    ]);
-    const csvContent =
-      'data:text/csv;charset=utf-8,' +
-      [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
+    const csv = budgetToCsv(budgetItems);
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
     const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `aurasync_${eventType}_budget.csv`);
+    link.href = url;
+    link.download = `clarocues_${eventType}_budget.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -212,6 +209,7 @@ export const BudgetPlanner: React.FC<BudgetPlannerProps> = ({
         <div className="flex flex-wrap items-center gap-2.5 shrink-0">
           <button
             onClick={() => setShowBenchmarksModal((prev) => !prev)}
+            aria-expanded={showBenchmarksModal}
             className="px-3.5 py-2 text-xs font-semibold text-teal-300 bg-slate-950 hover:bg-slate-800 border border-teal-500/40 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5"
           >
             <span>📊 {showBenchmarksModal ? 'Hide Benchmarks' : 'Industry Benchmarks'}</span>
@@ -230,6 +228,20 @@ export const BudgetPlanner: React.FC<BudgetPlannerProps> = ({
           </button>
         </div>
       </div>
+
+      {fundingGap && (
+        <div role="status" className="rounded-xl border border-sky-600/70 bg-sky-950/40 p-5 text-sky-100 space-y-2">
+          <div className="font-bold text-sm">
+            Accessibility is under-funded: {fundingGap.allocatedPercent}% of budget vs a typical{' '}
+            {fundingGap.industryAveragePercent}% for a {eventType}
+          </div>
+          <p className="text-xs sm:text-sm text-slate-200 leading-relaxed">
+            Interpreter teams, CART captioning and assistive listening are what make the event usable for Deaf and
+            Hard-of-Hearing guests. Add about ${fundingGap.shortfallAmount.toLocaleString()} to an accessibility line
+            (name it e.g. "ASL Interpreters & CART") so it is tracked against the benchmark.
+          </p>
+        </div>
+      )}
 
       {/* ACTIVE WARNING CALLOUT STRIP */}
       {activeWarnings.length > 0 && (
@@ -252,7 +264,7 @@ export const BudgetPlanner: React.FC<BudgetPlannerProps> = ({
                       Industry Allocation Warning: {warning.categoryDisplayName} Exceeds Standard Benchmark
                     </span>
                     <span
-                      className={`text-[10px] font-mono px-2 py-0.5 rounded font-semibold uppercase ${
+                      className={`text-[11px] font-mono px-2 py-0.5 rounded font-semibold uppercase ${
                         warning.severity === 'critical'
                           ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
                           : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
@@ -358,7 +370,7 @@ export const BudgetPlanner: React.FC<BudgetPlannerProps> = ({
             <div>
               <h3 className="text-sm font-bold text-white tracking-wide flex items-center gap-2">
                 <span>Industry Benchmark Spectrum for {eventType.toUpperCase()} Planning</span>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-teal-500/20 text-teal-300">
+                <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-teal-500/20 text-teal-300">
                   Standard Cap Guide
                 </span>
               </h3>
@@ -387,7 +399,7 @@ export const BudgetPlanner: React.FC<BudgetPlannerProps> = ({
                 <div className="flex items-center justify-between mb-1">
                   <span className="font-semibold text-white text-xs">{cat.displayName}</span>
                   <span
-                    className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
+                    className={`text-[11px] font-mono px-1.5 py-0.5 rounded ${
                       cat.isOver
                         ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
                         : 'bg-teal-500/10 text-teal-300 border border-teal-500/20'
@@ -425,7 +437,7 @@ export const BudgetPlanner: React.FC<BudgetPlannerProps> = ({
           <div className="text-2xl font-bold text-white font-mono tabular-nums">
             ${totalBudget.toLocaleString()}
           </div>
-          <div className="text-[11px] text-slate-500">Master expenditure cap</div>
+          <div className="text-[11px] text-slate-400">Master expenditure cap</div>
         </div>
 
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-1">
@@ -433,7 +445,7 @@ export const BudgetPlanner: React.FC<BudgetPlannerProps> = ({
           <div className="text-2xl font-bold text-teal-400 font-mono tabular-nums">
             ${totalAllocated.toLocaleString()}
           </div>
-          <div className="text-[11px] text-slate-500 font-mono tabular-nums">
+          <div className="text-[11px] text-slate-400 font-mono tabular-nums">
             {totalBudget > 0 ? Math.round((totalAllocated / totalBudget) * 100) : 0}% of total budget
           </div>
         </div>
@@ -443,7 +455,7 @@ export const BudgetPlanner: React.FC<BudgetPlannerProps> = ({
           <div className="text-2xl font-bold text-sky-400 font-mono tabular-nums">
             ${accessibilitySpecificTotal.toLocaleString()}
           </div>
-          <div className="text-[11px] text-slate-500 font-mono tabular-nums">
+          <div className="text-[11px] text-slate-400 font-mono tabular-nums">
             {totalBudget > 0 ? Math.round((accessibilitySpecificTotal / totalBudget) * 100) : 0}% dedicated to DHH access
           </div>
         </div>
@@ -457,7 +469,7 @@ export const BudgetPlanner: React.FC<BudgetPlannerProps> = ({
           >
             ${balanceRemaining.toLocaleString()}
           </div>
-          <div className="text-[11px] text-slate-500 font-mono">
+          <div className="text-[11px] text-slate-400 font-mono">
             {balanceRemaining >= 0 ? 'Surplus buffer available' : 'Budget exceeded'}
           </div>
         </div>
@@ -482,8 +494,9 @@ export const BudgetPlanner: React.FC<BudgetPlannerProps> = ({
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
             <div className="space-y-1">
-              <label className="text-slate-300">Category Name</label>
+              <label htmlFor="budget-new-category" className="text-slate-300">Category Name</label>
               <input
+                id="budget-new-category"
                 type="text"
                 required
                 value={newCategory}
@@ -494,9 +507,11 @@ export const BudgetPlanner: React.FC<BudgetPlannerProps> = ({
             </div>
 
             <div className="space-y-1">
-              <label className="text-slate-300">Estimated Cost ($)</label>
+              <label htmlFor="budget-new-amount" className="text-slate-300">Estimated Cost ($)</label>
               <input
+                id="budget-new-amount"
                 type="number"
+                min="0"
                 required
                 value={newAmount}
                 onChange={(e) => setNewAmount(e.target.value)}
@@ -505,10 +520,11 @@ export const BudgetPlanner: React.FC<BudgetPlannerProps> = ({
             </div>
 
             <div className="space-y-1">
-              <label className="text-slate-300">Priority Tier</label>
+              <label htmlFor="budget-new-priority" className="text-slate-300">Priority Tier</label>
               <select
+                id="budget-new-priority"
                 value={newPriority}
-                onChange={(e) => setNewPriority(e.target.value as any)}
+                onChange={(e) => setNewPriority(e.target.value as BudgetItem['priority'])}
                 className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-slate-100 focus:outline-none focus:border-teal-500"
               >
                 <option value="Essential">Essential (Core Experience / Access)</option>
@@ -520,8 +536,9 @@ export const BudgetPlanner: React.FC<BudgetPlannerProps> = ({
           </div>
 
           <div className="space-y-1 text-xs">
-            <label className="text-slate-300">Notes & Specification</label>
+            <label htmlFor="budget-new-notes" className="text-slate-300">Notes & Specification</label>
             <input
+              id="budget-new-notes"
               type="text"
               value={newNotes}
               onChange={(e) => setNewNotes(e.target.value)}
@@ -560,6 +577,7 @@ export const BudgetPlanner: React.FC<BudgetPlannerProps> = ({
               <button
                 key={tab}
                 onClick={() => setFilterPriority(tab)}
+                aria-pressed={filterPriority === tab}
                 className={`px-3 py-1 font-medium capitalize rounded transition-colors cursor-pointer ${
                   filterPriority === tab
                     ? 'bg-slate-800 text-teal-300 shadow-sm'
@@ -575,16 +593,17 @@ export const BudgetPlanner: React.FC<BudgetPlannerProps> = ({
         {/* Dense Data Table */}
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
+            <caption className="sr-only">Budget line items with cost, share of budget and procurement status</caption>
             <thead>
               <tr className="border-b border-slate-800 bg-slate-950/60 text-slate-400 uppercase tracking-wider font-medium text-[11px]">
-                <th className="py-3 px-6">Expense Category</th>
-                <th className="py-3 px-4">Priority</th>
-                <th className="py-3 px-4 text-right">Cost</th>
-                <th className="py-3 px-4 text-right">Share</th>
-                <th className="py-3 px-4">Benchmark Status</th>
-                <th className="py-3 px-4">Procurement</th>
-                <th className="py-3 px-6">Technical Specifications</th>
-                <th className="py-3 px-4 text-right">Action</th>
+                <th scope="col" className="py-3 px-6">Expense Category</th>
+                <th scope="col" className="py-3 px-4">Priority</th>
+                <th scope="col" className="py-3 px-4 text-right">Cost</th>
+                <th scope="col" className="py-3 px-4 text-right">Share</th>
+                <th scope="col" className="py-3 px-4">Benchmark Status</th>
+                <th scope="col" className="py-3 px-4">Procurement</th>
+                <th scope="col" className="py-3 px-6">Technical Specifications</th>
+                <th scope="col" className="py-3 px-4 text-right">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60 font-sans">
@@ -604,8 +623,9 @@ export const BudgetPlanner: React.FC<BudgetPlannerProps> = ({
                     <td className="py-3.5 px-6 font-medium text-slate-100 whitespace-nowrap">
                       <div className="flex items-center gap-2">
                         {isWarned && (
-                          <span title="Exceeds industry allocation benchmark" className="text-amber-400">
-                            ⚠️
+                          <span className="text-amber-400">
+                            <span aria-hidden="true">⚠️</span>
+                            <span className="sr-only">Exceeds industry allocation benchmark: </span>
                           </span>
                         )}
                         <span>{item.category}</span>
@@ -636,12 +656,12 @@ export const BudgetPlanner: React.FC<BudgetPlannerProps> = ({
                       {isWarned && warning ? (
                         <span
                           title={`Category total is ${warning.allocatedPercent}% vs ${warning.warningThresholdPercent}% warning cap`}
-                          className="inline-flex items-center gap-1 text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                          className="inline-flex items-center gap-1 text-[11px] font-mono font-semibold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40"
                         >
                           <span>Exceeds Avg ({warning.allocatedPercent}%)</span>
                         </span>
                       ) : (
-                        <span className="text-[10px] font-mono text-slate-500">
+                        <span className="text-[11px] font-mono text-slate-400">
                           ✓ In Range
                         </span>
                       )}
@@ -649,6 +669,7 @@ export const BudgetPlanner: React.FC<BudgetPlannerProps> = ({
                     <td className="py-3.5 px-4 whitespace-nowrap">
                       <button
                         onClick={() => handleToggleStatus(item.id)}
+                        aria-label={`${item.category}: status ${item.status}. Activate to change status`}
                         className="text-xs font-mono underline hover:text-teal-300 cursor-pointer text-slate-300"
                       >
                         {item.status}
@@ -660,7 +681,8 @@ export const BudgetPlanner: React.FC<BudgetPlannerProps> = ({
                     <td className="py-3.5 px-4 text-right whitespace-nowrap">
                       <button
                         onClick={() => handleDeleteItem(item.id)}
-                        className="text-[11px] text-slate-500 hover:text-rose-400 transition-colors cursor-pointer"
+                        aria-label={`Remove ${item.category}`}
+                        className="text-[11px] text-slate-400 hover:text-rose-400 transition-colors cursor-pointer"
                       >
                         Remove
                       </button>

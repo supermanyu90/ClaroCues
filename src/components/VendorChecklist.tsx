@@ -128,7 +128,7 @@ export const VendorChecklist: React.FC<VendorChecklistProps> = ({
           <div className="text-2xl font-bold text-white font-mono tabular-nums">
             {vendors.length} Vendors
           </div>
-          <div className="text-[11px] text-slate-500">Across {new Set(vendors.map(v => v.category)).size} categories</div>
+          <div className="text-[11px] text-slate-400">Across {new Set(vendors.map(v => v.category)).size} categories</div>
         </div>
 
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-1">
@@ -136,7 +136,7 @@ export const VendorChecklist: React.FC<VendorChecklistProps> = ({
           <div className="text-2xl font-bold text-teal-400 font-mono tabular-nums">
             {vendors.filter((v) => v.status === 'Booked' || v.status === 'Paid').length} Confirmed
           </div>
-          <div className="text-[11px] text-slate-500 font-mono">
+          <div className="text-[11px] text-slate-400 font-mono">
             {Math.round((vendors.filter((v) => v.status === 'Booked' || v.status === 'Paid').length / (vendors.length || 1)) * 100)}% pipeline completion
           </div>
         </div>
@@ -146,7 +146,7 @@ export const VendorChecklist: React.FC<VendorChecklistProps> = ({
           <div className="text-2xl font-bold text-emerald-400 font-mono tabular-nums">
             ${totalCommitted.toLocaleString()}
           </div>
-          <div className="text-[11px] text-slate-500 font-mono">Deposits & signed obligations</div>
+          <div className="text-[11px] text-slate-400 font-mono">Deposits & signed obligations</div>
         </div>
 
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-1">
@@ -154,7 +154,7 @@ export const VendorChecklist: React.FC<VendorChecklistProps> = ({
           <div className="text-2xl font-bold text-sky-400 font-mono tabular-nums">
             ${totalEstimated.toLocaleString()}
           </div>
-          <div className="text-[11px] text-slate-500 font-mono">Total estimated requirements</div>
+          <div className="text-[11px] text-slate-400 font-mono">Total estimated requirements</div>
         </div>
       </div>
 
@@ -177,8 +177,9 @@ export const VendorChecklist: React.FC<VendorChecklistProps> = ({
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
             <div className="space-y-1">
-              <label className="text-slate-300">Vendor / Company Name</label>
+              <label htmlFor="vendor-vendor-company-name" className="text-slate-300">Vendor / Company Name</label>
               <input
+                id="vendor-vendor-company-name"
                 type="text"
                 required
                 value={name}
@@ -189,8 +190,9 @@ export const VendorChecklist: React.FC<VendorChecklistProps> = ({
             </div>
 
             <div className="space-y-1">
-              <label className="text-slate-300">Category</label>
+              <label htmlFor="vendor-category" className="text-slate-300">Category</label>
               <select
+                id="vendor-category"
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
                 className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-slate-100 focus:outline-none focus:border-teal-500"
@@ -202,8 +204,9 @@ export const VendorChecklist: React.FC<VendorChecklistProps> = ({
             </div>
 
             <div className="space-y-1">
-              <label className="text-slate-300">Estimated Cost ($)</label>
+              <label htmlFor="vendor-estimated-cost" className="text-slate-300">Estimated Cost ($)</label>
               <input
+                id="vendor-estimated-cost"
                 type="number"
                 value={estimatedCost}
                 onChange={(e) => setEstimatedCost(e.target.value)}
@@ -214,8 +217,9 @@ export const VendorChecklist: React.FC<VendorChecklistProps> = ({
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
             <div className="space-y-1">
-              <label className="text-slate-300">Lead Contact Person</label>
+              <label htmlFor="vendor-lead-contact-person" className="text-slate-300">Lead Contact Person</label>
               <input
+                id="vendor-lead-contact-person"
                 type="text"
                 value={contact}
                 onChange={(e) => setContact(e.target.value)}
@@ -225,8 +229,9 @@ export const VendorChecklist: React.FC<VendorChecklistProps> = ({
             </div>
 
             <div className="space-y-1">
-              <label className="text-slate-300">Email & Phone</label>
+              <label htmlFor="vendor-email-phone" className="text-slate-300">Email & Phone</label>
               <input
+                id="vendor-email-phone"
                 type="text"
                 value={emailPhone}
                 onChange={(e) => setEmailPhone(e.target.value)}
@@ -236,8 +241,9 @@ export const VendorChecklist: React.FC<VendorChecklistProps> = ({
             </div>
 
             <div className="space-y-1">
-              <label className="text-slate-300">Decision Deadline</label>
+              <label htmlFor="vendor-decision-deadline" className="text-slate-300">Decision Deadline</label>
               <input
+                id="vendor-decision-deadline"
                 type="text"
                 value={deadline}
                 onChange={(e) => setDeadline(e.target.value)}
@@ -248,8 +254,9 @@ export const VendorChecklist: React.FC<VendorChecklistProps> = ({
           </div>
 
           <div className="space-y-1 text-xs">
-            <label className="text-slate-300">Notes & Special Requirements</label>
+            <label htmlFor="vendor-notes-special-requirements" className="text-slate-300">Notes & Special Requirements</label>
             <input
+              id="vendor-notes-special-requirements"
               type="text"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
@@ -340,8 +347,9 @@ export const VendorChecklist: React.FC<VendorChecklistProps> = ({
 
                   {/* Status Dropdown */}
                   <select
+                    aria-label={`Booking status for ${vendor.name}`}
                     value={vendor.status}
-                    onChange={(e) => handleUpdateStatus(vendor.id, e.target.value as any)}
+                    onChange={(e) => handleUpdateStatus(vendor.id, e.target.value as VendorItem['status'])}
                     className={`text-xs font-semibold px-3 py-1.5 rounded-lg border cursor-pointer focus:outline-none ${
                       vendor.status === 'Booked' || vendor.status === 'Paid'
                         ? 'bg-emerald-950/60 border-emerald-500/50 text-emerald-300'
@@ -373,6 +381,7 @@ export const VendorChecklist: React.FC<VendorChecklistProps> = ({
               <div className="border-t border-slate-800/80 pt-3 flex items-center justify-between">
                 <button
                   onClick={() => setExpandedVendorId(isExpanded ? null : vendor.id)}
+                  aria-expanded={isExpanded}
                   className="text-xs font-medium text-teal-400 hover:text-teal-300 cursor-pointer flex items-center gap-1"
                 >
                   {isExpanded ? 'Hide Key Questions to Ask' : `View Key Questions to Ask (${vendor.keyQuestions.length})`}
@@ -380,7 +389,8 @@ export const VendorChecklist: React.FC<VendorChecklistProps> = ({
 
                 <button
                   onClick={() => handleDeleteVendor(vendor.id)}
-                  className="text-xs text-slate-500 hover:text-rose-400 transition-colors cursor-pointer"
+                  aria-label={`Remove ${vendor.name}`}
+                  className="text-xs text-slate-400 hover:text-rose-400 transition-colors cursor-pointer"
                 >
                   Remove Partner
                 </button>

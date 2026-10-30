@@ -13,14 +13,16 @@
 
 ## 🌟 Key Highlights
 
+- **✅ Access Readiness Audit**  
+  A score out of 100 recomputed from the plan itself: teamed interpreters and rotation length, CART booking, accessibility budget share, interpreter/caption coverage of every spoken segment, visual equivalents for sound cues, emergency alerting, DeafBlind provision, prep-material lead time and floorplan sightlines. Each failing check says how to fix it, and the result is included in the PDF export.
 - **📐 DeafSpace Floorplan Architect & Sightline Raycaster**  
   Interactive 2D drag-and-drop floorplan canvas with dynamic raycasting. Calculates real-time visual clearance from every guest seat to the ASL Dais, CART caption screens, and the acoustic vibration dance floor.
 - **🏷️ Visual Sightline Legend & Accessibility Pods**  
   Color-coded status indicators distinguishing unobstructed priority sightlines, caution zones, and occluded angles. Supports specialized table configurations including Crescent Arc Tables, Wheelchair Companions (ADA 60″ turning radius), CART Alignment Pods, and DeafBlind Frontline rumble seating.
 - **🌸 Centerpiece Height Guardrail**  
   Enforces strict DeafSpace physical constraints (centerpieces capped at $\le 9.5''$ or $8.5''$ on banquet tables) to prevent blocking facial expressions, lipreading, and signing space.
-- **🎙️ Real-Time Gemini 3.8 Live Voice Concierge**  
-  Bidirectional voice assistant streaming low-latency PCM audio over WebSockets (`ws`) to plan, troubleshoot, and adapt events on the fly with spoken or sign-interpreted guidance.
+- **💬 Captioned Live Concierge (Gemini Live)**  
+  Real-time planning conversation over WebSockets. Both sides are captioned live (input and output audio transcription), and users can type instead of speaking, so the concierge works for Deaf and Hard-of-Hearing planners.
 - **🗺️ Google Maps Grounded Venue Radar**  
   AI discovery grounded with Google Maps Platform to inspect venues for physical accessibility, step-free access, non-glare lighting, and low reverberation acoustic ceilings.
 - **💰 Budget Planner with Benchmark Warning System**  
@@ -31,8 +33,10 @@
   Dedicated checklist managing RID-certified interpreters, cued speech transliterators, and high-contrast projection equipment.
 - **📄 Vector PDF Master Dossier Export**  
   Client-side multi-page PDF generation via `jspdf`, producing print-ready executive summaries, sightline metrics, budget allocations, and day-of schedules.
-- **🗣️ Speech & Vow Studio (Gemini 3.5)**  
-  Dictation and speech transcription engine allowing speakers, hosts, and couples to record toasts and vows with instant clean-text transcription.
+- **🗣️ Speech & Vow Studio → Interpreter Prep**  
+  Record toasts and vows, get a verbatim transcript, and send it straight to the ASL gloss tool so interpreters and captioners receive scripts and names ahead of the event.
+- **🤟 ASL Prep & Sign Practice**  
+  Drafts ASL gloss with non-manual markers for interpreter preparation, and gives hearing hosts camera feedback on practice signs via Gemini vision. Both are labelled as preparation aids, not replacements for qualified interpreters.
 
 ---
 
@@ -74,40 +78,32 @@ ClaroCues applies the 5 DeafSpace principles pioneered at Gallaudet University:
 ## 📂 Project Structure
 
 ```
-├── .env.example                  # Environment configuration template
-├── index.html                    # Single-page entry with accessibility metadata
-├── metadata.json                 # AI Studio applet specifications & permissions
-├── package.json                  # Dependencies, scripts, and build pipeline
-├── server.ts                     # Express + WebSocket gateway with Gemini integrations
-├── tsconfig.json                 # TypeScript compiler configuration
-├── vite.config.ts                # Vite build and Tailwind CSS configuration
-└── src/
-    ├── main.tsx                  # Application bootstrap
-    ├── App.tsx                   # Main layout, tab navigation, and event state provider
-    ├── index.css                 # Global styling and Tailwind directives
-    ├── components/
-    │   ├── AiAssistantChat.tsx           # Multi-turn conversational planning assistant
-    │   ├── BudgetPlanner.tsx             # Budget matrix with industry benchmark warnings
-    │   ├── FloorplanArchitect.tsx        # 2D visual sightline canvas with drag-and-drop
-    │   ├── FloorplanLegend.tsx           # Legend for priority seating & sightline indicators
-    │   ├── GeminiBlueprintModal.tsx      # GenAI event blueprint generator
-    │   ├── Header.tsx                    # Top navigation, live concierge button, brand header
-    │   ├── LiveVoiceAssistantModal.tsx   # Real-time WebSockets Gemini Live audio interface
-    │   ├── LocalVenueRadar.tsx           # Maps-grounded venue accessibility inspector
-    │   ├── PdfReportModal.tsx            # Printable report previewer & vector exporter
-    │   ├── PersonalizedIdeasView.tsx     # Custom sensory & inclusive entertainment concepts
-    │   ├── RunOfShowTimeline.tsx         # Minute-by-minute ceremony & reception timeline
-    │   ├── SensoryVisualConsole.tsx      # Visual lighting cues & haptic pulse controller
-    │   ├── SignInterpreterEngine.tsx     # ASL/CART team rotation & sightline coordinator
-    │   ├── TimelineManager.tsx           # High-level milestone management
-    │   └── VendorChecklist.tsx           # Vendor coordination with accessibility vetting
-    ├── data/
-    │   └── initialEventData.ts           # Preloaded accessible event templates & defaults
-    ├── types/
-    │   └── index.ts                      # Central TypeScript schemas & domain models
-    └── utils/
-        ├── budgetBenchmark.ts            # Industry average ratios & threshold calculation
-        └── pdfGenerator.ts               # jsPDF document layout & vector formatting
+├── server.ts                     # Bootstrap: config, Gemini client, HTTP + /live WebSocket, Vite/static
+├── server/
+│   ├── app.ts                    # Express routes, Helmet/CSP, rate limiting, error handling
+│   ├── ai.ts                     # AiGateway interface + Gemini implementation (swappable in tests)
+│   ├── live.ts                   # /live WebSocket gateway (origin check, frame validation, captions)
+│   ├── validation.ts             # zod request schemas
+│   ├── prompts.ts                # Prompt builders (user input passed as fenced data, never as instructions)
+│   ├── fallbacks.ts              # Labelled reference content when Gemini is unavailable
+│   └── config.ts                 # Environment configuration
+├── src/
+│   ├── App.tsx                   # Layout, plan state, lazily loaded tab panels
+│   ├── shared/                   # Types shared by client and server (API + live protocol)
+│   ├── components/
+│   │   ├── ui/                   # Accessible Modal, Tabs, SourceBadge/ErrorNotice
+│   │   ├── AccessReadinessAudit.tsx
+│   │   ├── FloorplanArchitect.tsx     # Drag *or* arrow-key table placement with live sightline analysis
+│   │   ├── LiveVoiceAssistantModal.tsx
+│   │   └── …                     # Budget, timeline, vendors, venues, ideas, sensory console, ASL prep
+│   ├── audio/pcm-capture.worklet.js   # Mic capture off the main thread
+│   └── utils/
+│       ├── accessibilityAudit.ts # Readiness scoring
+│       ├── sightline.ts          # DeafSpace sightline geometry
+│       ├── budgetBenchmark.ts    # Category classification, benchmarks, under-funding check
+│       ├── planNormalizer.ts     # Validates/coerces model-generated plans
+│       ├── pcm.ts, csv.ts, api.ts, pdfGenerator.ts
+└── tests/setup.ts                # Vitest + Testing Library setup (tests live next to the code)
 ```
 
 ---
@@ -121,8 +117,8 @@ ClaroCues applies the 5 DeafSpace principles pioneered at Gallaudet University:
 
 ### 1. Clone & Install Dependencies
 ```bash
-git clone https://github.com/your-username/clarocues.git
-cd clarocues
+git clone https://github.com/supermanyu90/ClaroCues.git
+cd ClaroCues
 npm install
 ```
 
@@ -149,6 +145,9 @@ npm run dev
 ```
 Open [http://localhost:3000](http://localhost:3000) in your browser. The Express server serves both the API endpoints (`/api/*`), WebSockets gateway (`/live-audio`), and Vite development middleware.
 
+### Deploying to Vercel
+`vercel.json` serves the built SPA and runs the Express API as a serverless function (`api/index.ts`). Set `GEMINI_API_KEY` in the Vercel project's environment variables. Two limits apply: the `/live` WebSocket concierge needs a long-running server (`npm start`, Cloud Run, Render), and Vercel caps request bodies at 4.5 MB, which limits audio uploads to a few minutes.
+
 ### 4. Build for Production
 ```bash
 npm run build
@@ -157,11 +156,40 @@ npm start
 
 ---
 
+## ✅ Testing
+
+```bash
+npm test               # unit, API and component tests (Vitest)
+npm run test:coverage  # with V8 coverage
+npm run check          # typecheck + tests + production build (what CI runs)
+```
+
+Server routes are tested with Supertest against a fake `AiGateway`, so no API key or network is needed. Component tests use Testing Library and check accessibility behaviour (dialog focus management, ARIA tabs, keyboard operation).
+
+---
+
+## ♿ Accessibility of the app itself
+
+- Skip link, one `h1`, labelled landmarks, and ARIA tab patterns with Arrow/Home/End keys.
+- Dialogs trap focus, close on Escape and return focus to the button that opened them.
+- Every form control has a label; icon-only buttons have accessible names.
+- Floorplan tables can be moved with arrow keys, and sightline changes are announced; a text summary of every table's status is provided for screen readers.
+- Chat, captions and status messages use live regions.
+- Honors `prefers-reduced-motion`; animations can be paused (WCAG 2.2.2), and visual cues use a steady tint, never flashes (WCAG 2.3.1).
+- Text contrast meets WCAG AA on the dark theme.
+
+---
+
 ## 🔒 Security & Privacy
 
-- **Server-Side API Proxying**: All calls to the Google Gemini API are encapsulated in `server.ts`. Raw API keys are never leaked to client browsers.
-- **Ephemeral Audio**: Bidirectional voice streams processed during live concierge sessions are transiently routed through secure WebSockets and not persisted to disk.
-- **Client-Side Document Export**: PDF generation is performed entirely in-memory inside the user's browser using client-side vector synthesis.
+- **Server-side keys**: all Gemini calls run in the server; the key never reaches the browser.
+- **Input validation**: every endpoint validates its body with zod (length caps, numeric ranges, base64 and MIME allow-lists). Per-route body-size limits are 100 KB by default, 3 MB for images and 15 MB for audio.
+- **Prompt-injection hardening**: user text is passed to the model as a fenced JSON data block that the model is told to treat as data only.
+- **Output handling**: model JSON is parsed defensively and normalized, links are restricted to `http(s)`, and CSV export neutralizes spreadsheet formulas.
+- **HTTP hardening**: Helmet headers, a strict Content-Security-Policy in production, per-IP rate limiting on `/api/*`, and generic error messages with no stack traces.
+- **WebSocket**: same-origin check (plus `ALLOWED_ORIGINS`), a frame-size cap, frame-schema validation and a concurrent-session cap.
+- **No fabricated output**: without Gemini, planning endpoints return content labelled *Offline reference*. Transcription, ASL gloss and sign recognition return an error instead of inventing text.
+- **Ephemeral media**: audio and camera frames are only sent while the user is actively recording or checking a sign, and are not stored. Microphone and camera tracks are released when no longer needed.
 
 ---
 

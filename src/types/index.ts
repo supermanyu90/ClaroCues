@@ -73,6 +73,7 @@ export interface ChatMessage {
   content: string;
   timestamp: string;
   suggestions?: string[];
+  source?: 'gemini' | 'fallback';
 }
 
 export interface SightlineTable {
@@ -122,6 +123,8 @@ export interface EventPlan {
     status: 'Verified' | 'Ready' | 'In Progress';
     detail: string;
   }[];
+  /** Floorplan tables; when absent the default sample layout is used. */
+  seatingLayout?: SightlineTable[];
 }
 
 // Backwards compatibility alias

@@ -1,5 +1,9 @@
 import React, { useState } from 'react';
 import { EventPlan } from '../types';
+import { errorMessage, postJson } from '../utils/api';
+import { normalizeGeneratedPlan } from '../utils/planNormalizer';
+import { Modal } from './ui/Modal';
+import { ErrorNotice } from './ui/SourceBadge';
 
 interface GeminiBlueprintModalProps {
   isOpen: boolean;
@@ -23,122 +27,28 @@ export const GeminiBlueprintModal: React.FC<GeminiBlueprintModalProps> = ({
   );
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
 
-  if (!isOpen) return null;
+  const [error, setError] = useState<string | null>(null);
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsGenerating(true);
-
+    setError(null);
     try {
-      const res = await fetch('/api/gemini/plan-event', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          eventType,
-          guestCount,
-          budget,
-          venueType,
-          theme,
-          dhhRatio: `${dhhPercentage}%`,
-          specialRequests,
-        }),
+      const data = await postJson<Record<string, unknown>>('/api/gemini/plan-event', {
+        eventType,
+        guestCount,
+        budget,
+        venueType,
+        theme,
+        dhhRatio: dhhPercentage,
+        specialRequests,
       });
-
-      if (res.ok) {
-        const data = await res.json();
-        const transformed: EventPlan = {
-          id: `plan-${Date.now()}`,
-          title: data.title || `${eventType} Master Plan`,
-          eventType: (eventType.toLowerCase().includes('wedding')
-            ? 'wedding'
-            : eventType.toLowerCase().includes('birthday')
-            ? 'birthday'
-            : 'community') as any,
-          guestCount,
-          dhhPercentage,
-          totalBudget: budget,
-          venueName: venueType,
-          dateStr: 'Upcoming Celebration',
-          theme: data.theme || theme,
-          executiveSummary: data.executiveSummary || 'Comprehensive event plan with budgets, timelines, and vendor checklists.',
-          budgetAllocation: (data.budgetAllocation || []).map((b: any, idx: number) => ({
-            id: `b-gen-${idx}`,
-            category: b.category,
-            amount: b.amount,
-            priority: b.priority || 'High',
-            notes: b.notes || 'Allocated expense',
-            status: 'Estimated' as const,
-          })),
-          countdownPhases: (data.countdownPhases || []).map((p: any, idx: number) => ({
-            id: `phase-gen-${idx}`,
-            timeframe: p.timeframe,
-            description: p.description,
-            tasks: (p.tasks || []).map((t: any, tIdx: number) => ({
-              id: `task-gen-${idx}-${tIdx}`,
-              title: t.title,
-              category: t.category || 'Planning',
-              completed: false,
-            })),
-          })),
-          vendorChecklist: (data.vendorChecklist || []).map((v: any, idx: number) => ({
-            id: `v-gen-${idx}`,
-            category: v.category || 'General',
-            name: v.name || 'Vendor Partner',
-            contact: v.contact || 'Lead Representative',
-            emailPhone: v.emailPhone || 'contact@vendor.com',
-            status: v.status || 'To Research',
-            estimatedCost: v.estimatedCost || 1500,
-            keyQuestions: v.keyQuestions || ['What is your cancellation policy?'],
-            deadline: v.deadline || '4 Months Out',
-            notes: v.notes || 'Custom procurement note',
-          })),
-          timelineMilestones: (data.timelineMilestones || []).map((m: any, idx: number) => ({
-            id: `m-gen-${idx}`,
-            time: m.time,
-            title: m.title,
-            details: m.details,
-            cueType: (m.cueType || 'milestone') as any,
-            interpreterRotation: m.interpreterRotation || false,
-          })),
-          personalizedIdeas: (data.personalizedIdeas || []).map((idea: any, idx: number) => ({
-            id: `idea-gen-${idx}`,
-            category: idea.category || 'Theme & Palette',
-            title: idea.title,
-            description: idea.description,
-            budgetImpact: idea.budgetImpact || 'Medium',
-            implementationTip: idea.implementationTip || 'Coordinate with vendor team.',
-            isSaved: true,
-          })),
-          sightlineAndSeating: data.sightlineAndSeating || {
-            recommendedLayout: 'Radial Semi-Circle Seating',
-            focalZones: ['Main Stage Center', 'Interpreter Dias Left', 'Dual Caption Screens'],
-            lightingGuidance: '5000K daylight wash; zero silhouette backlight.',
-          },
-          interpreterStaffing: data.interpreterStaffing || {
-            teamSize: 2,
-            rotationIntervalMinutes: 20,
-            qualifications: 'RID Certified Interpreter Pair',
-            prepMaterialWindowDays: 7,
-          },
-          sensoryAndVisualCues: (data.sensoryAndVisualCues || []).map((c: any, idx: number) => ({
-            id: `cue-gen-${idx}`,
-            trigger: c.trigger,
-            visualCue: c.visualCue,
-            hapticCue: c.hapticCue,
-            captionMode: c.captionMode,
-          })),
-          readinessChecklist: (data.readinessChecklist || []).map((r: any) => ({
-            item: r.item,
-            status: r.status === 'Verified' ? 'Verified' : 'Ready',
-            detail: r.detail,
-          })),
-        };
-
-        onApplyBlueprint(transformed);
-        onClose();
-      }
+      onApplyBlueprint(
+        normalizeGeneratedPlan(data, { eventLabel: eventType, guestCount, budget, venueType, theme, dhhPercentage })
+      );
+      onClose();
     } catch (err) {
-      console.error('Failed to generate plan:', err);
+      setError(errorMessage(err));
     } finally {
       setIsGenerating(false);
     }
@@ -173,25 +83,13 @@ export const GeminiBlueprintModal: React.FC<GeminiBlueprintModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 space-y-6 shadow-2xl max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-          <div>
-            <h2 className="text-lg font-bold text-white tracking-tight">
-              Plan New Event with GenAI Assistant
-            </h2>
-            <p className="text-xs text-slate-400">
-              Generates complete budgets, multi-month countdowns, day-of schedules, vendor checklists, and personalized ideas
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-slate-400 hover:text-white transition-colors cursor-pointer text-sm"
-          >
-            ✕
-          </button>
-        </div>
-
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Plan a New Event with AI"
+      description="Generates a budget, countdown, run-of-show, vendor checklist and access plan you can edit."
+    >
+      <div className="p-6 space-y-6">
         {/* Quick Presets Strip */}
         <div className="space-y-1.5">
           <div className="text-xs text-slate-400 font-medium">Quick Event Presets:</div>
@@ -223,8 +121,9 @@ export const GeminiBlueprintModal: React.FC<GeminiBlueprintModalProps> = ({
         <form onSubmit={handleGenerate} className="space-y-4 text-xs">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1">
-              <label className="text-slate-300 font-medium">Event Title / Occasion</label>
+              <label htmlFor="plan-event-type" className="text-slate-300 font-medium">Event Title / Occasion</label>
               <input
+                id="plan-event-type"
                 type="text"
                 required
                 value={eventType}
@@ -235,8 +134,9 @@ export const GeminiBlueprintModal: React.FC<GeminiBlueprintModalProps> = ({
             </div>
 
             <div className="space-y-1">
-              <label className="text-slate-300 font-medium">Venue Style / Location</label>
+              <label htmlFor="plan-venue" className="text-slate-300 font-medium">Venue Style / Location</label>
               <input
+                id="plan-venue"
                 type="text"
                 required
                 value={venueType}
@@ -249,52 +149,56 @@ export const GeminiBlueprintModal: React.FC<GeminiBlueprintModalProps> = ({
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="space-y-1">
-              <label className="text-slate-300 font-medium">
+              <label htmlFor="plan-guests" className="text-slate-300 font-medium">
                 Guest Count: <span className="font-mono text-teal-400">{guestCount}</span>
               </label>
               <input
+                id="plan-guests"
                 type="range"
                 min="20"
                 max="400"
                 step="5"
                 value={guestCount}
-                onChange={(e) => setGuestCount(parseInt(e.target.value))}
+                onChange={(e) => setGuestCount(Number(e.target.value))}
                 className="w-full accent-teal-400 cursor-pointer"
               />
             </div>
 
             <div className="space-y-1">
-              <label className="text-slate-300 font-medium">
-                Accessibility Ratio: <span className="font-mono text-teal-400">{dhhPercentage}%</span>
+              <label htmlFor="plan-dhh" className="text-slate-300 font-medium">
+                Deaf / Hard-of-Hearing guests: <span className="font-mono text-teal-400">{dhhPercentage}%</span>
               </label>
               <input
+                id="plan-dhh"
                 type="range"
                 min="0"
                 max="100"
                 step="5"
                 value={dhhPercentage}
-                onChange={(e) => setDhhPercentage(parseInt(e.target.value))}
+                onChange={(e) => setDhhPercentage(Number(e.target.value))}
                 className="w-full accent-teal-400 cursor-pointer"
               />
             </div>
 
             <div className="space-y-1">
-              <label className="text-slate-300 font-medium">Total Budget ($)</label>
+              <label htmlFor="plan-budget" className="text-slate-300 font-medium">Total Budget ($)</label>
               <input
+                id="plan-budget"
                 type="number"
                 min="1000"
                 max="250000"
                 step="500"
                 value={budget}
-                onChange={(e) => setBudget(parseInt(e.target.value) || 20000)}
+                onChange={(e) => setBudget(Math.max(0, parseInt(e.target.value, 10) || 0))}
                 className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-100 font-mono tabular-nums focus:outline-none focus:border-teal-500"
               />
             </div>
           </div>
 
           <div className="space-y-1">
-            <label className="text-slate-300 font-medium">Theme & Creative Vibe</label>
+            <label htmlFor="plan-theme" className="text-slate-300 font-medium">Theme & Creative Vibe</label>
             <input
+                id="plan-theme"
               type="text"
               value={theme}
               onChange={(e) => setTheme(e.target.value)}
@@ -304,16 +208,20 @@ export const GeminiBlueprintModal: React.FC<GeminiBlueprintModalProps> = ({
           </div>
 
           <div className="space-y-1">
-            <label className="text-slate-300 font-medium">
+            <label htmlFor="plan-requests" className="text-slate-300 font-medium">
               Special Wishes & Priorities (Catering, AV, Music, Surprises)
             </label>
             <textarea
+                id="plan-requests"
               rows={3}
               value={specialRequests}
               onChange={(e) => setSpecialRequests(e.target.value)}
+              maxLength={1500}
               className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-100 focus:outline-none focus:border-teal-500 resize-none"
             />
           </div>
+
+          <ErrorNotice message={error} onDismiss={() => setError(null)} />
 
           <div className="flex justify-end gap-3 pt-3 border-t border-slate-800">
             <button
@@ -328,11 +236,11 @@ export const GeminiBlueprintModal: React.FC<GeminiBlueprintModalProps> = ({
               disabled={isGenerating}
               className="px-5 py-2 font-semibold text-slate-950 bg-teal-400 hover:bg-teal-300 disabled:opacity-50 rounded-lg transition-colors cursor-pointer shadow-md"
             >
-              {isGenerating ? 'Synthesizing Full Event Plan...' : 'Generate Comprehensive Event Plan'}
+              {isGenerating ? 'Generating plan…' : 'Generate event plan'}
             </button>
           </div>
         </form>
       </div>
-    </div>
+    </Modal>
   );
 };

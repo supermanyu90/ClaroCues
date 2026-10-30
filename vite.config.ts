@@ -6,9 +6,14 @@ import {defineConfig} from 'vite';
 export default defineConfig(() => {
   return {
     plugins: [react(), tailwindcss()],
+    build: {
+      // Audio worklets must load from our own origin: the production CSP (script-src 'self')
+      // blocks the data: URLs Vite would otherwise inline small assets as.
+      assetsInlineLimit: (filePath: string) => (filePath.endsWith('.worklet.js') ? false : undefined),
+    },
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, '.'),
+        '@': path.resolve(import.meta.dirname, '.'),
       },
     },
     server: {

@@ -193,12 +193,14 @@ export const TimelineManager: React.FC<TimelineManagerProps> = ({
                       <div className="flex gap-2">
                         <input
                           type="text"
+                          aria-label="New task title"
                           value={newTaskTitle}
                           onChange={(e) => setNewTaskTitle(e.target.value)}
                           placeholder="Task title (e.g. 'Finalize seating chart')"
                           className="flex-1 bg-slate-900 border border-slate-800 rounded p-2 text-xs text-white focus:outline-none focus:border-teal-500"
                         />
                         <select
+                          aria-label="New task category"
                           value={newTaskCategory}
                           onChange={(e) => setNewTaskCategory(e.target.value)}
                           className="bg-slate-900 border border-slate-800 rounded p-2 text-xs text-slate-300 focus:outline-none"
@@ -250,7 +252,7 @@ export const TimelineManager: React.FC<TimelineManagerProps> = ({
                           />
                           <span
                             className={`text-xs sm:text-sm font-medium ${
-                              task.completed ? 'line-through text-slate-500' : 'text-slate-200'
+                              task.completed ? 'line-through text-slate-400' : 'text-slate-200'
                             }`}
                           >
                             {task.title}
@@ -304,8 +306,9 @@ export const TimelineManager: React.FC<TimelineManagerProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
                 <div className="space-y-1">
-                  <label className="text-slate-300">Time (24h)</label>
+                  <label htmlFor="milestone-time-24h" className="text-slate-300">Time (24h)</label>
                   <input
+                    id="milestone-time-24h"
                     type="text"
                     required
                     value={newTime}
@@ -316,8 +319,9 @@ export const TimelineManager: React.FC<TimelineManagerProps> = ({
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-slate-300">Milestone Title</label>
+                  <label htmlFor="milestone-milestone-title" className="text-slate-300">Milestone Title</label>
                   <input
+                    id="milestone-milestone-title"
                     type="text"
                     required
                     value={newTitle}
@@ -328,10 +332,11 @@ export const TimelineManager: React.FC<TimelineManagerProps> = ({
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-slate-300">Cue Type</label>
+                  <label htmlFor="milestone-cue-type" className="text-slate-300">Cue Type</label>
                   <select
+                    id="milestone-cue-type"
                     value={newCueType}
-                    onChange={(e) => setNewCueType(e.target.value as any)}
+                    onChange={(e) => setNewCueType(e.target.value as TimelineMilestone['cueType'])}
                     className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-slate-100 focus:outline-none focus:border-teal-500"
                   >
                     <option value="interpreter">ASL Interpreter Rotation</option>
@@ -344,8 +349,9 @@ export const TimelineManager: React.FC<TimelineManagerProps> = ({
               </div>
 
               <div className="space-y-1 text-xs">
-                <label className="text-slate-300">Execution Details & Technical Notes</label>
+                <label htmlFor="milestone-execution-details-technical-notes" className="text-slate-300">Execution Details & Technical Notes</label>
                 <input
+                  id="milestone-execution-details-technical-notes"
                   type="text"
                   value={newDetails}
                   onChange={(e) => setNewDetails(e.target.value)}
@@ -403,7 +409,8 @@ export const TimelineManager: React.FC<TimelineManagerProps> = ({
                       )}
                       <button
                         onClick={() => handleDeleteMilestone(item.id)}
-                        className="text-[11px] text-slate-500 hover:text-rose-400 cursor-pointer ml-2"
+                        aria-label={`Delete milestone ${item.time} ${item.title}`}
+                        className="text-[11px] text-slate-400 hover:text-rose-400 cursor-pointer ml-2"
                       >
                         Delete
                       </button>

@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
 import { EventPlan } from '../types';
+import { auditPlanAccessibility } from './accessibilityAudit';
 
 /**
  * Generates and downloads a clean, professional PDF summary report of the event plan.
@@ -271,15 +272,34 @@ export function generateEventPlanPdf(plan: EventPlan) {
     y + 28
   );
   doc.text(
-    `• Centerpiece Rule: Low florals capped under 8.5 inches to ensure continuous table sign communication`,
+    `• Centerpiece Rule: Centerpieces at or below 9.5 inches so signing stays visible across tables`,
     margin + 10,
     y + 42
   );
 
   y += 70;
 
+  // --- ACCESS READINESS AUDIT ---
+  const audit = auditPlanAccessibility(plan, plan.seatingLayout);
+  checkPageBreak(40);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12);
+  doc.setTextColor(15, 23, 42);
+  doc.text(`6. Access Readiness Audit: ${audit.score}/100`, margin, y);
+  y += 16;
+  doc.setFontSize(8.5);
+  for (const check of audit.checks) {
+    const line = `[${check.status.toUpperCase()}] ${check.label}: ${check.detail}${check.fix ? ` Fix: ${check.fix}` : ''}`;
+    const wrapped: string[] = doc.splitTextToSize(line, contentWidth - 10);
+    checkPageBreak(wrapped.length * 11 + 4);
+    doc.setFont('helvetica', check.status === 'pass' ? 'normal' : 'bold');
+    doc.setTextColor(check.status === 'fail' ? 185 : 51, check.status === 'fail' ? 28 : 65, check.status === 'fail' ? 28 : 85);
+    doc.text(wrapped, margin + 4, y);
+    y += wrapped.length * 11 + 3;
+  }
+
   // --- FOOTER ON ALL PAGES ---
-  const totalPages = (doc.internal as any).getNumberOfPages();
+  const totalPages = doc.getNumberOfPages();
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
     doc.setFont('helvetica', 'normal');

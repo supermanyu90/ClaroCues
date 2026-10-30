@@ -211,105 +211,57 @@ export const INDUSTRY_BENCHMARKS: Record<EventCategory, Record<StandardCategoryK
   },
 };
 
+// Ordered: the first matching rule wins, so accessibility is checked before generic AV/sound.
+// Whole-word matching avoids false hits such as "bar" in "barrier-free" or "hall" in "shall".
+const CATEGORY_RULES: [StandardCategoryKey, RegExp][] = [
+  ['accessibility', /\b(asl|interpreters?|interpreting|cart|captions?|captioning|steno|hearing loops?|induction|dhh|sightlines?|tactile|accessibility)\b/],
+  ['catering', /\b(cater\w*|food|beverages?|bar|cocktails?|mocktails?|cake|dinner|snacks?|buffet|dining|tasting)\b/],
+  ['venue', /\b(venue|pavilion|hall|loft|terrace|space rental|facilit(y|ies)|staging|site)\b/],
+  ['photography', /\b(photo\w*|video\w*|cinema\w*|polaroids?|camera)\b/],
+  ['entertainment', /\b(dj|music|band|dance ?floor|sound-to-light|sound|audio|lighting rig|trivia|performers?)\b/],
+  ['decor', /\b(florals?|flowers?|decor|centerpieces?|balloons?|signage|backdrops?|linens?)\b/],
+];
+
 /**
  * Classifies an arbitrary expense category string into a standardized benchmark category.
  */
 export function classifyCategory(categoryName: string): StandardCategoryKey | null {
   const norm = categoryName.toLowerCase();
-
-  // Accessibility (priority match)
-  if (
-    norm.includes('asl') ||
-    norm.includes('interpreter') ||
-    norm.includes('cart') ||
-    norm.includes('caption') ||
-    norm.includes('steno') ||
-    norm.includes('hearing loop') ||
-    norm.includes('induction') ||
-    norm.includes('dhh') ||
-    norm.includes('sightline') ||
-    norm.includes('tactile')
-  ) {
-    return 'accessibility';
+  for (const [key, pattern] of CATEGORY_RULES) {
+    if (pattern.test(norm)) return key;
   }
-
-  // Catering & Food
-  if (
-    norm.includes('cater') ||
-    norm.includes('food') ||
-    norm.includes('beverage') ||
-    norm.includes('bar') ||
-    norm.includes('cocktail') ||
-    norm.includes('mocktail') ||
-    norm.includes('cake') ||
-    norm.includes('dinner') ||
-    norm.includes('snack') ||
-    norm.includes('buffet') ||
-    norm.includes('dining') ||
-    norm.includes('tasting')
-  ) {
-    return 'catering';
-  }
-
-  // Venue & Staging
-  if (
-    norm.includes('venue') ||
-    norm.includes('pavilion') ||
-    norm.includes('hall') ||
-    norm.includes('loft') ||
-    norm.includes('terrace') ||
-    norm.includes('space rental') ||
-    norm.includes('facility') ||
-    norm.includes('staging') ||
-    norm.includes('site')
-  ) {
-    return 'venue';
-  }
-
-  // Photography & Cinema
-  if (
-    norm.includes('photo') ||
-    norm.includes('video') ||
-    norm.includes('cinema') ||
-    norm.includes('polaroid') ||
-    norm.includes('photobooth') ||
-    norm.includes('camera')
-  ) {
-    return 'photography';
-  }
-
-  // Entertainment & Music
-  if (
-    norm.includes('dj') ||
-    norm.includes('music') ||
-    norm.includes('band') ||
-    norm.includes('dance floor') ||
-    norm.includes('dancefloor') ||
-    norm.includes('sound-to-light') ||
-    norm.includes('sound') ||
-    norm.includes('audio') ||
-    norm.includes('lighting rig') ||
-    norm.includes('trivia') ||
-    norm.includes('performer')
-  ) {
-    return 'entertainment';
-  }
-
-  // Decor & Floral
-  if (
-    norm.includes('floral') ||
-    norm.includes('flower') ||
-    norm.includes('decor') ||
-    norm.includes('centerpiece') ||
-    norm.includes('balloon') ||
-    norm.includes('signage') ||
-    norm.includes('backdrop') ||
-    norm.includes('linen')
-  ) {
-    return 'decor';
-  }
-
   return null;
+}
+
+export interface AccessibilityFundingGap {
+  allocatedAmount: number;
+  allocatedPercent: number;
+  industryAveragePercent: number;
+  shortfallAmount: number;
+}
+
+/**
+ * Under-funding access is the costlier mistake for a Deaf-inclusive event, so it is flagged
+ * separately from the over-allocation warnings. Returns null when funding meets the benchmark.
+ */
+export function checkAccessibilityFunding(
+  items: BudgetItem[],
+  totalBudget: number,
+  eventType: EventCategory = 'wedding'
+): AccessibilityFundingGap | null {
+  if (totalBudget <= 0) return null;
+  const allocatedAmount = items
+    .filter((i) => classifyCategory(i.category) === 'accessibility')
+    .reduce((sum, i) => sum + i.amount, 0);
+  const allocatedPercent = Math.round((allocatedAmount / totalBudget) * 1000) / 10;
+  const { industryAveragePercent } = (INDUSTRY_BENCHMARKS[eventType] || INDUSTRY_BENCHMARKS.wedding).accessibility;
+  if (allocatedPercent >= industryAveragePercent) return null;
+  return {
+    allocatedAmount,
+    allocatedPercent,
+    industryAveragePercent,
+    shortfallAmount: Math.round((industryAveragePercent / 100) * totalBudget - allocatedAmount),
+  };
 }
 
 /**

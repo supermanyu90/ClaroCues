@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { EventPlan } from '../types';
-import { generateEventPlanPdf } from '../utils/pdfGenerator';
+import { Modal } from './ui/Modal';
 
 interface PdfReportModalProps {
   isOpen: boolean;
@@ -13,6 +13,7 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
   onClose,
   plan,
 }) => {
+  const [isExporting, setIsExporting] = useState(false);
   if (!isOpen) return null;
 
   const totalAllocated = plan.budgetAllocation.reduce((acc, b) => acc + b.amount, 0);
@@ -22,51 +23,43 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
     window.print();
   };
 
-  const handleDownloadPdf = () => {
-    generateEventPlanPdf(plan);
+  // jsPDF (~350 kB) is loaded only when someone actually exports.
+  const handleDownloadPdf = async () => {
+    setIsExporting(true);
+    try {
+      const { generateEventPlanPdf } = await import('../utils/pdfGenerator');
+      generateEventPlanPdf(plan);
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm animate-in fade-in overflow-y-auto">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-4xl w-full p-6 space-y-6 shadow-2xl max-h-[92vh] flex flex-col">
-        {/* Header Bar */}
-        <div className="flex items-center justify-between border-b border-slate-800 pb-4 shrink-0">
-          <div>
-            <div className="flex items-center gap-2 text-xs text-slate-400 font-medium">
-              <span>Printable Report Engine</span>
-              <span aria-hidden="true">·</span>
-              <span>jsPDF Vector Document</span>
-              <span aria-hidden="true">·</span>
-              <span>Master Summary</span>
-            </div>
-            <h2 className="text-lg font-bold text-white tracking-tight">
-              Event Master Dossier & PDF Summary
-            </h2>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleDownloadPdf}
-              className="px-4 py-2 text-xs font-semibold text-slate-950 bg-teal-400 hover:bg-teal-300 rounded-lg transition-colors cursor-pointer shadow-sm flex items-center gap-1.5"
-            >
-              <span>Download PDF (.pdf)</span>
-            </button>
-            <button
-              onClick={handlePrint}
-              className="px-3 py-2 text-xs font-semibold text-slate-200 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg transition-colors cursor-pointer"
-            >
-              Print via Browser
-            </button>
-            <button
-              onClick={onClose}
-              className="p-2 text-slate-400 hover:text-white transition-colors cursor-pointer text-sm"
-              title="Close modal"
-            >
-              ✕
-            </button>
-          </div>
-        </div>
-
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      className="max-w-4xl"
+      title="Event Master Dossier & PDF Summary"
+      description="Preview the printable summary, then download a PDF or print from the browser."
+      actions={
+        <>
+          <button
+            onClick={handleDownloadPdf}
+            disabled={isExporting}
+            className="px-4 py-2 text-xs font-semibold text-slate-950 bg-teal-400 hover:bg-teal-300 disabled:opacity-60 rounded-lg transition-colors cursor-pointer shadow-sm"
+          >
+            {isExporting ? 'Preparing PDF…' : 'Download PDF (.pdf)'}
+          </button>
+          <button
+            onClick={handlePrint}
+            className="px-3 py-2 text-xs font-semibold text-slate-200 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg transition-colors cursor-pointer"
+          >
+            Print via Browser
+          </button>
+        </>
+      }
+    >
+      <div className="p-6 space-y-6">
         {/* Paper Document Preview Area (Styled like printed paper) */}
         <div className="flex-1 overflow-y-auto bg-slate-950 rounded-xl p-6 sm:p-8 border border-slate-800/80 space-y-6 text-slate-800 font-sans printable-report">
           {/* Printable Document Sheet Container */}
@@ -107,7 +100,7 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
                 <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
                   2. Day-Of Run-of-Show Milestones & Visual Cues
                 </h2>
-                <span className="text-[11px] text-slate-500 font-mono">
+                <span className="text-[11px] text-slate-400 font-mono">
                   {plan.timelineMilestones.length} Key Milestones
                 </span>
               </div>
@@ -131,7 +124,7 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
                         <td className="py-2 px-3 font-semibold text-slate-900 whitespace-nowrap">
                           {m.title}
                         </td>
-                        <td className="py-2 px-3 uppercase text-[10px] font-mono text-slate-500 whitespace-nowrap">
+                        <td className="py-2 px-3 uppercase text-[11px] font-mono text-slate-400 whitespace-nowrap">
                           {m.cueType}
                         </td>
                         <td className="py-2 px-3 text-slate-600 text-[11px]">
@@ -150,7 +143,7 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
                 <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
                   3. Budget Allocation & Financial Summary
                 </h2>
-                <span className="text-[11px] text-slate-500 font-mono">
+                <span className="text-[11px] text-slate-400 font-mono">
                   Allocated: ${totalAllocated.toLocaleString()} · Balance: ${remaining.toLocaleString()}
                 </span>
               </div>
@@ -170,7 +163,7 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
                       <tr key={item.id}>
                         <td className="py-2 px-3 font-medium text-slate-900">{item.category}</td>
                         <td className="py-2 px-3 text-slate-600 text-[11px]">{item.priority}</td>
-                        <td className="py-2 px-3 text-slate-500 font-mono text-[11px]">{item.status}</td>
+                        <td className="py-2 px-3 text-slate-400 font-mono text-[11px]">{item.status}</td>
                         <td className="py-2 px-3 text-right font-mono font-bold text-slate-900">
                           ${item.amount.toLocaleString()}
                         </td>
@@ -197,7 +190,7 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
                     <div className="text-[11px] text-slate-600">
                       Category: {v.category} · Status: {v.status}
                     </div>
-                    <div className="text-[11px] text-slate-500 truncate">
+                    <div className="text-[11px] text-slate-400 truncate">
                       {v.contact} · {v.emailPhone}
                     </div>
                   </div>
@@ -213,7 +206,7 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
               <ul className="list-disc list-inside space-y-1 text-[11px]">
                 <li><span className="font-semibold text-slate-800">Sightline Clearance:</span> {plan.sightlineAndSeating.recommendedLayout}</li>
                 <li><span className="font-semibold text-slate-800">Interpreter Team:</span> {plan.interpreterStaffing.teamSize} RID Interpreters on {plan.interpreterStaffing.rotationIntervalMinutes}-minute rotations</li>
-                <li><span className="font-semibold text-slate-800">Centerpiece Constraint:</span> Strictly under 8.5 inches to prevent visual blockage between guests</li>
+                <li><span className="font-semibold text-slate-800">Centerpiece Constraint:</span> At or below 9.5 inches so faces and signing stay visible across tables</li>
               </ul>
             </div>
 
@@ -225,6 +218,6 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
           </div>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 };

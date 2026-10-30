@@ -1,15 +1,27 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChatMessage, EventPlan, SearchSource } from '../types';
+import type { ResponseSource } from '../shared/api';
+import { blobToBase64, errorMessage, postJson, safeExternalUrl } from '../utils/api';
+import { ErrorNotice, SourceBadge } from './ui/SourceBadge';
+import { TabList, TabPanel } from './ui/Tabs';
 
 interface AiAssistantChatProps {
   currentPlan: EventPlan;
-  onApplyPlanUpdate?: (updates: Partial<EventPlan>) => void;
   onOpenLiveVoice?: () => void;
+  /** Hands a transcript to the ASL prep tool so interpreters get scripts ahead of time. */
+  onSendToInterpreterPrep?: (text: string) => void;
 }
+
+/** Only the most recent turns are sent upstream to bound request size and cost. */
+const MAX_HISTORY = 20;
+
+const prefersReducedMotion = () =>
+  typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
 export const AiAssistantChat: React.FC<AiAssistantChatProps> = ({
   currentPlan,
   onOpenLiveVoice,
+  onSendToInterpreterPrep,
 }) => {
   const [activeMode, setActiveMode] = useState<'chat' | 'searchGrounding' | 'speechTranscription'>('chat');
 
@@ -31,6 +43,7 @@ export const AiAssistantChat: React.FC<AiAssistantChatProps> = ({
   const [inputVal, setInputVal] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
 
   // Audio Recording & Gemini 3.5 Transcribe state
@@ -39,7 +52,7 @@ export const AiAssistantChat: React.FC<AiAssistantChatProps> = ({
   const [isTranscribing, setIsTranscribing] = useState<boolean>(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
-  const timerIntervalRef = useRef<any>(null);
+  const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Speech / Vow Transcription Studio state
   const [dictatedVowText, setDictatedVowText] = useState<string>(
@@ -55,7 +68,9 @@ export const AiAssistantChat: React.FC<AiAssistantChatProps> = ({
   const [searchResult, setSearchResult] = useState<{
     content: string;
     sources: SearchSource[];
+    source: ResponseSource | 'sample';
   }>({
+    source: 'sample',
     content: `### Real-World Pricing & Market Intelligence for ${currentPlan.eventType.toUpperCase()}\n\n` +
       `• **Catering & Beverage**: Average buffet service is currently **$48–$75 per guest**; premium multi-course seated dinner ranges from **$95–$165 per guest** including basic service fees.\n` +
       `• **Floral & Visual Styling**: Modern minimalist arrangements featuring high-contrast architectural foliage, stone vessels, and directional uplighting are saving planners 20–30% over traditional dense flower arches.\n` +
@@ -69,13 +84,28 @@ export const AiAssistantChat: React.FC<AiAssistantChatProps> = ({
   });
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    chatEndRef.current?.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'nearest' });
   }, [messages, isLoading]);
+
+  // Release the microphone and timer if the user navigates away mid-recording.
+  useEffect(
+    () => () => {
+      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+      const recorder = mediaRecorderRef.current;
+      if (recorder && recorder.state !== 'inactive') {
+        recorder.onstop = null;
+        recorder.stop();
+      }
+      recorder?.stream.getTracks().forEach((t) => t.stop());
+    },
+    []
+  );
 
   // Audio recording handlers (for gemini-3.5-transcribe)
   const startRecording = async (targetField: 'input' | 'vow' = 'input') => {
-    if (!navigator.mediaDevices?.getUserMedia) {
-      alert('Microphone access is not supported in this browser.');
+    setError(null);
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+      setError('Voice recording is not supported in this browser. You can type instead.');
       return;
     }
 
@@ -106,7 +136,7 @@ export const AiAssistantChat: React.FC<AiAssistantChatProps> = ({
       }, 1000);
     } catch (err) {
       console.error('Microphone recording error:', err);
-      alert('Unable to access microphone. Please grant microphone permissions.');
+      setError('Could not access the microphone. Allow microphone permission, or type instead.');
     }
   };
 
@@ -133,36 +163,18 @@ export const AiAssistantChat: React.FC<AiAssistantChatProps> = ({
   const processAudioTranscription = async (blob: Blob, targetField: 'input' | 'vow') => {
     setIsTranscribing(true);
     try {
-      // Convert blob to base64
-      const reader = new FileReader();
-      reader.readAsDataURL(blob);
-      reader.onloadend = async () => {
-        const base64Data = (reader.result as string).split(',')[1];
-        const mimeType = blob.type.split(';')[0] || 'audio/webm';
-
-        const res = await fetch('/api/gemini/transcribe', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            audioBase64: base64Data,
-            mimeType,
-          }),
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          const transcribedText = data.transcription || '';
-
-          if (targetField === 'input') {
-            setInputVal((prev) => (prev ? `${prev} ${transcribedText}` : transcribedText));
-          } else {
-            setDictatedVowText(transcribedText);
-          }
-        }
-        setIsTranscribing(false);
-      };
+      const audioBase64 = await blobToBase64(blob);
+      const mimeType = blob.type.split(';')[0] || 'audio/webm';
+      const data = await postJson<{ transcription: string }>('/api/gemini/transcribe', { audioBase64, mimeType });
+      const text = data.transcription || '';
+      if (targetField === 'input') {
+        setInputVal((prev) => (prev ? `${prev} ${text}` : text));
+      } else {
+        setDictatedVowText(text);
+      }
     } catch (err) {
-      console.error('Transcription failed:', err);
+      setError(errorMessage(err));
+    } finally {
       setIsTranscribing(false);
     }
   };
@@ -173,25 +185,15 @@ export const AiAssistantChat: React.FC<AiAssistantChatProps> = ({
     if (!topicToUse || isSearching) return;
 
     setIsSearching(true);
+    setError(null);
     try {
-      const res = await fetch('/api/gemini/search-intelligence', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          topic: topicToUse,
-          eventType: currentPlan.eventType,
-        }),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        setSearchResult({
-          content: data.content || '',
-          sources: data.sources || [],
-        });
-      }
+      const data = await postJson<{ content: string; sources: SearchSource[]; source: ResponseSource }>(
+        '/api/gemini/search-intelligence',
+        { topic: topicToUse, eventType: currentPlan.eventType }
+      );
+      setSearchResult({ content: data.content || '', sources: data.sources || [], source: data.source });
     } catch (err) {
-      console.error('Search grounding failed:', err);
+      setError(errorMessage(err));
     } finally {
       setIsSearching(false);
     }
@@ -206,19 +208,20 @@ export const AiAssistantChat: React.FC<AiAssistantChatProps> = ({
       id: `u-${Date.now()}`,
       sender: 'user',
       content: text,
-      timestamp: 'Just now',
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
 
     setMessages((prev) => [...prev, userMsg]);
     setInputVal('');
     setIsLoading(true);
 
+    setError(null);
     try {
-      const res = await fetch('/api/gemini/assistant-chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: [...messages, userMsg],
+      const history = [...messages, userMsg].slice(-MAX_HISTORY).map((m) => ({ sender: m.sender, content: m.content }));
+      const data = await postJson<{ content: string; suggestions?: string[]; source: ResponseSource }>(
+        '/api/gemini/assistant-chat',
+        {
+          messages: history,
           eventContext: {
             title: currentPlan.title,
             eventType: currentPlan.eventType,
@@ -226,43 +229,36 @@ export const AiAssistantChat: React.FC<AiAssistantChatProps> = ({
             totalBudget: currentPlan.totalBudget,
             venueName: currentPlan.venueName,
             theme: currentPlan.theme,
+            dhhPercentage: currentPlan.dhhPercentage,
           },
-        }),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        const assistantMsg: ChatMessage = {
+        }
+      );
+      setMessages((prev) => [
+        ...prev,
+        {
           id: `a-${Date.now()}`,
           sender: 'assistant',
           content: data.content,
-          timestamp: 'Just now',
-          suggestions: data.suggestions || [
-            'What questions should I ask my venue before signing?',
-            'How to allocate budget across decor vs entertainment',
-            'Draft speech introduction for the host'
-          ],
-        };
-        setMessages((prev) => [...prev, assistantMsg]);
-      }
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          suggestions: data.suggestions,
+          source: data.source,
+        },
+      ]);
     } catch (err) {
-      console.error('Chat failed:', err);
-      const fallbackMsg: ChatMessage = {
-        id: `a-${Date.now()}`,
-        sender: 'assistant',
-        content: "Here is a recommendation for your event: Focus on clear timeline transitions, keep table centerpieces under 9 inches to preserve sightlines, and establish a 10% contingency budget for day-of additions.",
-        timestamp: 'Just now',
-      };
-      setMessages((prev) => [...prev, fallbackMsg]);
+      setError(errorMessage(err));
     } finally {
       setIsLoading(false);
     }
   };
 
-  const copyToClipboard = (text: string, id: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 2000);
+  const copyToClipboard = async (text: string, id: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch {
+      setError('Could not copy to the clipboard.');
+    }
   };
 
   return (
@@ -294,8 +290,8 @@ export const AiAssistantChat: React.FC<AiAssistantChatProps> = ({
               onClick={onOpenLiveVoice}
               className="px-4 py-2.5 rounded-lg bg-teal-400 hover:bg-teal-300 text-slate-950 font-semibold text-xs transition-colors flex items-center justify-center gap-2 shadow-sm cursor-pointer"
             >
-              <span>🎙️ Live Voice Call</span>
-              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-950/20">
+              <span><span aria-hidden="true">🎙️ </span>Live concierge (captioned)</span>
+              <span className="text-[11px] font-mono px-1.5 py-0.5 rounded bg-slate-950/20">
                 Gemini 3.8 Live
               </span>
             </button>
@@ -311,47 +307,38 @@ export const AiAssistantChat: React.FC<AiAssistantChatProps> = ({
         </div>
       </div>
 
-      {/* Mode Switcher Tabs */}
-      <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-lg p-1.5 text-xs font-medium">
-        <button
-          onClick={() => setActiveMode('chat')}
-          className={`px-4 py-2 rounded-md transition-colors cursor-pointer flex items-center gap-1.5 ${
-            activeMode === 'chat'
-              ? 'bg-slate-800 text-teal-300 font-semibold shadow-sm'
-              : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <span>💬 Conversational Advisor</span>
-        </button>
+      <TabList
+        tabs={[
+          { key: 'chat', label: 'Planning chat' },
+          { key: 'searchGrounding', label: 'Market research (Google Search)' },
+          { key: 'speechTranscription', label: 'Speech & vow dictation' },
+        ]}
+        active={activeMode}
+        onChange={setActiveMode}
+        idPrefix="assistant"
+        label="Assistant modes"
+        className="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-lg p-1.5 text-xs font-medium overflow-x-auto"
+        tabClassName={(selected) =>
+          `px-4 py-2 rounded-md transition-colors cursor-pointer whitespace-nowrap ${
+            selected ? 'bg-slate-800 text-teal-300 font-semibold shadow-sm' : 'text-slate-400 hover:text-slate-200'
+          }`
+        }
+      />
 
-        <button
-          onClick={() => setActiveMode('searchGrounding')}
-          className={`px-4 py-2 rounded-md transition-colors cursor-pointer flex items-center gap-1.5 ${
-            activeMode === 'searchGrounding'
-              ? 'bg-slate-800 text-teal-300 font-semibold shadow-sm'
-              : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <span>🌐 Market Intelligence (Google Search Grounded)</span>
-        </button>
+      <ErrorNotice message={error} onDismiss={() => setError(null)} />
 
-        <button
-          onClick={() => setActiveMode('speechTranscription')}
-          className={`px-4 py-2 rounded-md transition-colors cursor-pointer flex items-center gap-1.5 ${
-            activeMode === 'speechTranscription'
-              ? 'bg-slate-800 text-teal-300 font-semibold shadow-sm'
-              : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <span>🎤 Vow & Speech Dictation (Gemini 3.5 Transcribe)</span>
-        </button>
-      </div>
-
+      <TabPanel idPrefix="assistant" tabKey={activeMode} className="focus:outline-none">
       {/* MODE 1: Interactive Chat with Mic Voice Input */}
       {activeMode === 'chat' && (
         <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden flex flex-col h-[650px]">
           {/* Messages Stream */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-5">
+          <div
+            className="flex-1 overflow-y-auto p-6 space-y-5"
+            role="log"
+            aria-live="polite"
+            aria-relevant="additions"
+            aria-label="Conversation with the planning assistant"
+          >
             {messages.map((msg) => {
               const isUser = msg.sender === 'user';
               return (
@@ -359,10 +346,11 @@ export const AiAssistantChat: React.FC<AiAssistantChatProps> = ({
                   key={msg.id}
                   className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} space-y-1.5`}
                 >
-                  <div className="flex items-center gap-2 text-[11px] text-slate-500 px-1 font-mono">
+                  <div className="flex items-center gap-2 text-[11px] text-slate-400 px-1 font-mono">
                     <span>{isUser ? 'You' : 'ClaroCues AI Assistant'}</span>
-                    <span>·</span>
+                    <span aria-hidden="true">·</span>
                     <span>{msg.timestamp}</span>
+                    {!isUser && msg.source && <SourceBadge source={msg.source} />}
                   </div>
 
                   <div
@@ -405,12 +393,12 @@ export const AiAssistantChat: React.FC<AiAssistantChatProps> = ({
             })}
 
             {isLoading && (
-              <div className="flex flex-col items-start space-y-1.5">
-                <div className="text-[11px] text-slate-500 px-1 font-mono">
+              <div className="flex flex-col items-start space-y-1.5" role="status">
+                <div className="text-[11px] text-slate-400 px-1 font-mono">
                   ClaroCues AI is analyzing...
                 </div>
                 <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 text-xs text-slate-400 animate-pulse flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-teal-400 animate-ping" />
+                  <span className="w-2 h-2 rounded-full bg-teal-400 motion-safe:animate-ping" />
                   <span>Formulating personalized event recommendation...</span>
                 </div>
               </div>
@@ -421,9 +409,9 @@ export const AiAssistantChat: React.FC<AiAssistantChatProps> = ({
 
           {/* Recording Banner if active */}
           {isRecording && (
-            <div className="bg-rose-950/70 border-t border-rose-800/80 px-4 py-2.5 flex items-center justify-between text-xs text-rose-200">
+            <div role="status" className="bg-rose-950/70 border-t border-rose-800/80 px-4 py-2.5 flex items-center justify-between text-xs text-rose-200">
               <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping" />
+                <span aria-hidden="true" className="w-2.5 h-2.5 rounded-full bg-rose-500 motion-safe:animate-ping" />
                 <span className="font-semibold">Recording Voice Memo... ({recordingSeconds}s)</span>
                 <span className="text-rose-400 text-[11px]">Speak clearly into your microphone</span>
               </div>
@@ -445,8 +433,8 @@ export const AiAssistantChat: React.FC<AiAssistantChatProps> = ({
           )}
 
           {isTranscribing && (
-            <div className="bg-teal-950/70 border-t border-teal-800/80 px-4 py-2 flex items-center gap-2 text-xs text-teal-200">
-              <span className="w-2 h-2 rounded-full bg-teal-400 animate-ping" />
+            <div role="status" className="bg-teal-950/70 border-t border-teal-800/80 px-4 py-2 flex items-center gap-2 text-xs text-teal-200">
+              <span className="w-2 h-2 rounded-full bg-teal-400 motion-safe:animate-ping" />
               <span>Transcribing audio with Gemini 3.5 Transcribe...</span>
             </div>
           )}
@@ -464,17 +452,19 @@ export const AiAssistantChat: React.FC<AiAssistantChatProps> = ({
                 type="button"
                 onClick={isRecording ? stopRecording : () => startRecording('input')}
                 title={isRecording ? 'Stop recording' : 'Dictate with Gemini 3.5 Transcribe'}
+                aria-label={isRecording ? 'Stop recording and transcribe' : 'Dictate a message by voice'}
                 className={`p-2.5 rounded-lg border transition-all cursor-pointer shrink-0 ${
                   isRecording
                     ? 'bg-rose-500 text-white border-rose-400 animate-pulse'
                     : 'bg-slate-900 border-slate-800 text-slate-300 hover:text-teal-300 hover:border-teal-500/50'
                 }`}
               >
-                🎙️
+                <span aria-hidden="true">🎙️</span>
               </button>
 
               <input
                 type="text"
+                aria-label="Message the planning assistant"
                 value={inputVal}
                 onChange={(e) => setInputVal(e.target.value)}
                 placeholder="Ask anything (e.g. 'Draft email to caterer', 'How to cut $1,500', 'Unique 40th birthday games')..."
@@ -521,6 +511,7 @@ export const AiAssistantChat: React.FC<AiAssistantChatProps> = ({
             >
               <input
                 type="text"
+                aria-label="Market research topic"
                 value={searchTopic}
                 onChange={(e) => setSearchTopic(e.target.value)}
                 placeholder="Research market topic (e.g. Average wedding floral budget, DJ pricing, catering per-person rates)..."
@@ -537,7 +528,7 @@ export const AiAssistantChat: React.FC<AiAssistantChatProps> = ({
             </form>
 
             <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
-              <span className="text-slate-500 font-medium">Quick Benchmarks:</span>
+              <span className="text-slate-400 font-medium">Quick Benchmarks:</span>
               {[
                 `Per-person catering benchmarks for ${currentPlan.guestCount} guests`,
                 `Average cost of certified ASL interpreter teams for events`,
@@ -566,7 +557,7 @@ export const AiAssistantChat: React.FC<AiAssistantChatProps> = ({
               <div className="text-sm font-medium text-slate-200">
                 Grounding with live Google Search results...
               </div>
-              <div className="text-xs text-slate-500 max-w-md mx-auto">
+              <div className="text-xs text-slate-400 max-w-md mx-auto">
                 Consulting industry reports, vendor pricing sheets, and recent event benchmarks via Gemini 3.8 Flash.
               </div>
             </div>
@@ -575,28 +566,29 @@ export const AiAssistantChat: React.FC<AiAssistantChatProps> = ({
               {/* Web Sources Strip */}
               {searchResult.sources.length > 0 && (
                 <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-2">
-                  <div className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-teal-400" />
-                    Verified Google Search Citations ({searchResult.sources.length})
+                  <div className="text-xs font-bold text-slate-300 uppercase tracking-wider flex flex-wrap items-center gap-2">
+                    <span>{searchResult.source === 'gemini' ? 'Google Search citations' : 'Reference links'} ({searchResult.sources.length})</span>
+                    <SourceBadge source={searchResult.source} />
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {searchResult.sources.map((source, sIdx) => (
                       <a
                         key={sIdx}
-                        href={source.uri}
+                        href={safeExternalUrl(source.uri) ?? undefined}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800 hover:border-teal-500 text-teal-300 hover:text-teal-200 text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
                       >
                         <span className="truncate max-w-xs font-medium">{source.title}</span>
-                        <span aria-hidden="true" className="text-[10px]">↗</span>
+                        <span aria-hidden="true" className="text-[11px]">↗</span>
+                        <span className="sr-only">(opens in a new tab)</span>
                       </a>
                     ))}
                   </div>
                 </div>
               )}
 
-              {/* Formatted Content */}
+              {searchResult.sources.length === 0 && <SourceBadge source={searchResult.source} />}
               <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 text-sm text-slate-200 leading-relaxed whitespace-pre-wrap font-sans">
                 {searchResult.content}
               </div>
@@ -625,6 +617,7 @@ export const AiAssistantChat: React.FC<AiAssistantChatProps> = ({
                   <button
                     key={cat}
                     onClick={() => setSpeechType(cat)}
+                    aria-pressed={speechType === cat}
                     className={`px-2.5 py-1 rounded transition-colors cursor-pointer capitalize ${
                       speechType === cat
                         ? 'bg-slate-800 text-teal-300 font-semibold'
@@ -641,16 +634,17 @@ export const AiAssistantChat: React.FC<AiAssistantChatProps> = ({
             <div className="flex flex-col items-center justify-center py-6 bg-slate-950/60 border border-slate-800 rounded-xl space-y-4">
               <button
                 onClick={isRecording ? stopRecording : () => startRecording('vow')}
+                aria-label={isRecording ? 'Stop recording and transcribe' : 'Start dictating'}
                 className={`w-20 h-20 rounded-full flex items-center justify-center text-3xl shadow-lg transition-transform cursor-pointer ${
                   isRecording
-                    ? 'bg-rose-500 text-white scale-110 animate-pulse'
+                    ? 'bg-rose-500 text-white scale-110 motion-safe:animate-pulse'
                     : 'bg-teal-400 hover:bg-teal-300 text-slate-950 hover:scale-105'
                 }`}
               >
-                {isRecording ? '⏹️' : '🎙️'}
+                <span aria-hidden="true">{isRecording ? '⏹️' : '🎙️'}</span>
               </button>
 
-              <div className="text-center space-y-1">
+              <div className="text-center space-y-1" aria-live="polite">
                 <div className="text-sm font-semibold text-white">
                   {isRecording ? `Recording in progress... (${recordingSeconds}s)` : 'Click to start dictating'}
                 </div>
@@ -662,8 +656,8 @@ export const AiAssistantChat: React.FC<AiAssistantChatProps> = ({
               </div>
 
               {isTranscribing && (
-                <div className="text-xs text-teal-300 font-mono flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-teal-400 animate-ping" />
+                <div role="status" className="text-xs text-teal-300 font-mono flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-teal-400 motion-safe:animate-ping" />
                   Transcribing via Gemini 3.5 Transcribe...
                 </div>
               )}
@@ -672,7 +666,7 @@ export const AiAssistantChat: React.FC<AiAssistantChatProps> = ({
             {/* Verbatim Transcribed Text Area */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                <label htmlFor="dictation-transcript" className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
                   Verbatim Speech Transcript
                 </label>
                 <div className="flex items-center gap-2">
@@ -691,10 +685,20 @@ export const AiAssistantChat: React.FC<AiAssistantChatProps> = ({
                   >
                     Send to AI Chat to Polish →
                   </button>
+                  {onSendToInterpreterPrep && (
+                    <button
+                      onClick={() => onSendToInterpreterPrep(dictatedVowText)}
+                      disabled={!dictatedVowText.trim()}
+                      className="text-xs text-teal-400 hover:text-teal-300 disabled:opacity-50 transition-colors cursor-pointer"
+                    >
+                      Send to Interpreter Prep (ASL gloss) →
+                    </button>
+                  )}
                 </div>
               </div>
 
               <textarea
+                id="dictation-transcript"
                 value={dictatedVowText}
                 onChange={(e) => setDictatedVowText(e.target.value)}
                 rows={6}
@@ -704,6 +708,7 @@ export const AiAssistantChat: React.FC<AiAssistantChatProps> = ({
           </div>
         </div>
       )}
+      </TabPanel>
     </div>
   );
 };

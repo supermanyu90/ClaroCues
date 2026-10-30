@@ -1,5 +1,9 @@
 import React, { useState } from 'react';
 import { PersonalizedIdea, EventPlan } from '../types';
+import type { ResponseSource } from '../shared/api';
+import { errorMessage, postJson } from '../utils/api';
+import { normalizeIdeas } from '../utils/planNormalizer';
+import { ErrorNotice } from './ui/SourceBadge';
 
 interface PersonalizedIdeasViewProps {
   ideas: PersonalizedIdea[];
@@ -16,6 +20,7 @@ export const PersonalizedIdeasView: React.FC<PersonalizedIdeasViewProps> = ({
   const [customVibe, setCustomVibe] = useState<string>('');
   const [isBrainstorming, setIsBrainstorming] = useState<boolean>(false);
   const [notification, setNotification] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const categories = [
     'all',
@@ -42,39 +47,25 @@ export const PersonalizedIdeasView: React.FC<PersonalizedIdeasViewProps> = ({
     if (!customVibe.trim() || isBrainstorming) return;
 
     setIsBrainstorming(true);
+    setError(null);
     try {
-      const res = await fetch('/api/gemini/ideas', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          eventType: currentPlan.eventType,
-          vibe: customVibe,
-          guestCount: currentPlan.guestCount,
-          budget: currentPlan.totalBudget,
-        }),
+      const data = await postJson<{ ideas: unknown; source: ResponseSource }>('/api/gemini/ideas', {
+        eventType: currentPlan.eventType,
+        vibe: customVibe,
+        guestCount: currentPlan.guestCount,
+        budget: currentPlan.totalBudget,
       });
-
-      if (res.ok) {
-        const data = await res.json();
-        if (data.ideas && Array.isArray(data.ideas)) {
-          const newFormatted: PersonalizedIdea[] = data.ideas.map((item: any, idx: number) => ({
-            id: `idea-gen-${Date.now()}-${idx}`,
-            category: item.category || 'Theme & Palette',
-            title: item.title,
-            description: item.description,
-            budgetImpact: item.budgetImpact || 'Medium',
-            implementationTip: item.implementationTip || 'Coordinate with vendor team.',
-            isSaved: true,
-          }));
-
-          onUpdateIdeas([...newFormatted, ...ideas]);
-          setNotification(`Generated ${newFormatted.length} personalized ideas for "${customVibe}"!`);
-          setTimeout(() => setNotification(null), 4000);
-          setCustomVibe('');
-        }
-      }
+      const newIdeas = normalizeIdeas(data.ideas, `idea-${Date.now()}`).map((i) => ({ ...i, isSaved: true }));
+      onUpdateIdeas([...newIdeas, ...ideas]);
+      setNotification(
+        data.source === 'gemini'
+          ? `Generated ${newIdeas.length} ideas for "${customVibe}".`
+          : `AI is unavailable, so ${newIdeas.length} reference ideas were added instead.`
+      );
+      setTimeout(() => setNotification(null), 4000);
+      setCustomVibe('');
     } catch (err) {
-      console.error('Brainstorm failed:', err);
+      setError(errorMessage(err));
     } finally {
       setIsBrainstorming(false);
     }
@@ -126,6 +117,8 @@ export const PersonalizedIdeasView: React.FC<PersonalizedIdeasViewProps> = ({
         <div className="flex flex-col sm:flex-row gap-3">
           <input
             type="text"
+            aria-label="Desired vibe or theme"
+            maxLength={300}
             value={customVibe}
             onChange={(e) => setCustomVibe(e.target.value)}
             placeholder="Describe your desired vibe or theme (e.g., 'Warm Autumn Tuscan Garden', 'High-energy 80s Retro Neon', 'Zero-Waste Eco Community')..."
@@ -140,11 +133,14 @@ export const PersonalizedIdeasView: React.FC<PersonalizedIdeasViewProps> = ({
           </button>
         </div>
 
-        {notification && (
-          <div className="text-xs font-medium text-teal-300 bg-teal-950/60 border border-teal-500/30 rounded p-2 animate-in fade-in">
-            {notification}
-          </div>
-        )}
+        <div role="status">
+          {notification && (
+            <div className="text-xs font-medium text-teal-300 bg-teal-950/60 border border-teal-500/30 rounded p-2">
+              {notification}
+            </div>
+          )}
+        </div>
+        <ErrorNotice message={error} onDismiss={() => setError(null)} />
       </form>
 
       {/* Filter Tabs */}
@@ -218,7 +214,7 @@ export const PersonalizedIdeasView: React.FC<PersonalizedIdeasViewProps> = ({
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] text-slate-500">
+                  <span className="text-[11px] text-slate-400">
                     {idea.isSaved ? '✓ Added to your master event book' : 'Available for inclusion'}
                   </span>
                   <button

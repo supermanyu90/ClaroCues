@@ -1,169 +1,129 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ASL_VOCABULARY } from '../data/initialBlueprint';
-import { AslSignItem } from '../types';
+import { AslSignItem, EventCategory } from '../types';
+import type { ResponseSource, SignRecognitionResult } from '../shared/api';
+import { errorMessage, postJson } from '../utils/api';
+import { ErrorNotice, SourceBadge } from './ui/SourceBadge';
 
-export const SignInterpreterEngine: React.FC = () => {
+interface SignInterpreterEngineProps {
+  /** Transcript handed over from the dictation studio, to prepare interpreter material. */
+  prepText?: string | null;
+  eventType?: EventCategory;
+}
+
+interface GlossResult {
+  aslGloss: string;
+  nonManualMarkers: string;
+  spatialGrammarNotes: string;
+  signBreakdown?: { gloss: string; description: string; timing: string; expression: string }[];
+  source: ResponseSource | 'sample';
+}
+
+const SAMPLE_GLOSS: GlossResult = {
+  source: 'sample',
+  aslGloss: 'WELCOME ALL-OF-YOU OUR ACCESSIBLE WEDDING CELEBRATE TODAY',
+  nonManualMarkers: 'Raised eyebrows on opening clause; warm expansive smile; affirmative head nod on conclusion.',
+  spatialGrammarNotes: 'Establish Couple locus on IX-Right; establish Guests on IX-Arc.',
+  signBreakdown: [
+    { gloss: 'WELCOME', description: 'Flat open hands sweep smoothly inward toward chest', timing: '0.0s - 1.2s', expression: 'Warm smile' },
+    { gloss: 'ALL-OF-YOU', description: 'Index finger sweeps wide inclusive semicircle', timing: '1.2s - 2.4s', expression: 'Eye contact across room' },
+  ],
+};
+
+const prefersReducedMotion = () =>
+  typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
+export const SignInterpreterEngine: React.FC<SignInterpreterEngineProps> = ({ prepText, eventType = 'wedding' }) => {
   const [selectedSign, setSelectedSign] = useState<AslSignItem>(ASL_VOCABULARY[0]);
-  const [isPlaying, setIsPlaying] = useState<boolean>(true);
+  const [isPlaying, setIsPlaying] = useState<boolean>(() => !prefersReducedMotion());
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1.0);
   const [currentFrameIndex, setCurrentFrameIndex] = useState<number>(0);
 
-  // Custom text translator state
-  const [inputText, setInputText] = useState<string>('Welcome everyone to our accessible wedding celebration!');
+  const [inputText, setInputText] = useState<string>(prepText || 'Welcome everyone to our accessible wedding celebration!');
   const [isTranslating, setIsTranslating] = useState<boolean>(false);
-  const [glossResult, setGlossResult] = useState<{
-    aslGloss: string;
-    nonManualMarkers: string;
-    spatialGrammarNotes: string;
-    signBreakdown: { gloss: string; description: string; timing: string; expression: string }[];
-  } | null>({
-    aslGloss: 'WELCOME ALL-OF-YOU OUR ACCESSIBLE WEDDING CELEBRATE TODAY',
-    nonManualMarkers: 'Raised eyebrows on opening clause; warm expansive smile; affirmative head nod on conclusion.',
-    spatialGrammarNotes: 'Establish Couple locus on IX-Right; establish Guests on IX-Arc.',
-    signBreakdown: [
-      { gloss: 'WELCOME', description: 'Flat open hands sweep smoothly inward toward chest', timing: '0.0s - 1.2s', expression: 'Warm smile' },
-      { gloss: 'ALL-OF-YOU', description: 'Index finger sweeps wide inclusive semicircle', timing: '1.2s - 2.4s', expression: 'Eye contact across room' },
-      { gloss: 'WEDDING', description: 'Hands clasp gently in center forming union bond', timing: '2.4s - 3.8s', expression: 'Reverent joy' },
-      { gloss: 'CELEBRATE', description: 'Both X-hands twirl in celebratory circles above shoulders', timing: '3.8s - 5.2s', expression: 'Vibrant celebratory eyes' }
-    ]
-  });
+  const [glossResult, setGlossResult] = useState<GlossResult>(SAMPLE_GLOSS);
+  const [error, setError] = useState<string | null>(null);
 
-  // Camera sign detection simulator state
   const [isCameraActive, setIsCameraActive] = useState<boolean>(false);
-  const [cameraError, setCameraError] = useState<string | null>(null);
-  const [detectedSign, setDetectedSign] = useState<string>('CONGRATULATIONS');
-  const [detectionConfidence, setDetectionConfidence] = useState<number>(96);
+  const [isRecognizing, setIsRecognizing] = useState<boolean>(false);
+  const [recognition, setRecognition] = useState<SignRecognitionResult | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  // Animation cycle for the ASL Avatar
   useEffect(() => {
-    let intervalId: any;
-    if (isPlaying && selectedSign.keyframes.length > 0) {
-      intervalId = setInterval(() => {
-        setCurrentFrameIndex((prev) => (prev + 1) % selectedSign.keyframes.length);
-      }, (800 / playbackSpeed));
-    }
+    if (prepText) setInputText(prepText);
+  }, [prepText]);
+
+  useEffect(() => {
+    if (!isPlaying || selectedSign.keyframes.length === 0) return;
+    const intervalId = setInterval(() => {
+      setCurrentFrameIndex((prev) => (prev + 1) % selectedSign.keyframes.length);
+    }, 800 / playbackSpeed);
     return () => clearInterval(intervalId);
   }, [isPlaying, selectedSign, playbackSpeed]);
 
-  // Webcam stream management
+  // Camera stream lifecycle: tracks are always stopped when the camera is turned off or the tab unmounts.
   useEffect(() => {
+    if (!isCameraActive) return;
     let stream: MediaStream | null = null;
-    if (isCameraActive) {
-      navigator.mediaDevices
-        ?.getUserMedia({ video: { width: 480, height: 360 } })
-        .then((s) => {
-          stream = s;
-          if (videoRef.current) {
-            videoRef.current.srcObject = s;
-            videoRef.current.play();
-          }
-        })
-        .catch((err) => {
-          console.warn('Camera access error:', err);
-          setCameraError('Camera preview simulated. Real camera permission may be blocked in preview sandbox.');
-        });
-    } else {
-      if (videoRef.current && videoRef.current.srcObject) {
-        const s = videoRef.current.srcObject as MediaStream;
-        s.getTracks().forEach((track) => track.stop());
-        videoRef.current.srcObject = null;
-      }
-    }
-
-    return () => {
-      if (stream) {
-        stream.getTracks().forEach((t) => t.stop());
-      }
-    };
-  }, [isCameraActive]);
-
-  // Canvas hand landmarks drawing loop
-  useEffect(() => {
-    let animId: number;
-    let t = 0;
-    const drawLandmarks = () => {
-      t += 0.05;
-      const canvas = canvasRef.current;
-      if (canvas) {
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          
-          if (isCameraActive) {
-            // Simulated 21-joint hand skeletal tracking points
-            const centerX = canvas.width / 2;
-            const centerY = canvas.height / 2;
-
-            // Hand 1 (Right)
-            const rx = centerX + Math.sin(t) * 40 + 70;
-            const ry = centerY + Math.cos(t * 1.5) * 30;
-
-            // Hand 2 (Left)
-            const lx = centerX - Math.sin(t) * 40 - 70;
-            const ly = centerY + Math.sin(t * 1.5) * 30;
-
-            const drawHand = (hx: number, hy: number) => {
-              ctx.strokeStyle = '#2dd4bf'; // Teal-400
-              ctx.fillStyle = '#14b8a6';
-              ctx.lineWidth = 2;
-
-              // Palm center
-              ctx.beginPath();
-              ctx.arc(hx, hy, 6, 0, Math.PI * 2);
-              ctx.fill();
-
-              // 5 fingers
-              for (let i = 0; i < 5; i++) {
-                const angle = (i - 2) * 0.35 - Math.PI / 2;
-                const fx1 = hx + Math.cos(angle) * 22;
-                const fy1 = hy + Math.sin(angle) * 22;
-                const fx2 = hx + Math.cos(angle) * 42;
-                const fy2 = hy + Math.sin(angle) * 42;
-
-                ctx.beginPath();
-                ctx.moveTo(hx, hy);
-                ctx.lineTo(fx1, fy1);
-                ctx.lineTo(fx2, fy2);
-                ctx.stroke();
-
-                ctx.beginPath();
-                ctx.arc(fx2, fy2, 3.5, 0, Math.PI * 2);
-                ctx.fill();
-              }
-            };
-
-            drawHand(rx, ry);
-            drawHand(lx, ly);
-          }
+    let cancelled = false;
+    navigator.mediaDevices
+      ?.getUserMedia({ video: { width: 640, height: 480 } })
+      .then((s) => {
+        if (cancelled) {
+          s.getTracks().forEach((t) => t.stop());
+          return;
         }
-      }
-      animId = requestAnimationFrame(drawLandmarks);
+        stream = s;
+        if (videoRef.current) {
+          videoRef.current.srcObject = s;
+          void videoRef.current.play();
+        }
+      })
+      .catch(() => {
+        setError('Camera access was blocked. Allow camera permission to practise signs.');
+        setIsCameraActive(false);
+      });
+    return () => {
+      cancelled = true;
+      stream?.getTracks().forEach((t) => t.stop());
     };
-
-    animId = requestAnimationFrame(drawLandmarks);
-    return () => cancelAnimationFrame(animId);
   }, [isCameraActive]);
 
   const handleTranslateText = async () => {
     if (!inputText.trim()) return;
     setIsTranslating(true);
-
+    setError(null);
     try {
-      const res = await fetch('/api/gemini/asl-gloss', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: inputText, context: 'Accessible event announcement' }),
+      const data = await postJson<GlossResult>('/api/gemini/asl-gloss', {
+        text: inputText,
+        context: `Accessible ${eventType} announcement`,
       });
-      if (res.ok) {
-        const data = await res.json();
-        setGlossResult(data);
-      }
+      setGlossResult(data);
     } catch (err) {
-      console.error('Translation failed:', err);
+      setError(errorMessage(err));
     } finally {
       setIsTranslating(false);
+    }
+  };
+
+  /** Sends one JPEG frame to Gemini vision. Frames are not stored by ClaroCues. */
+  const handleRecognizeSign = async () => {
+    const video = videoRef.current;
+    if (!video || video.videoWidth === 0) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = 480;
+    canvas.height = Math.round((video.videoHeight / video.videoWidth) * 480);
+    canvas.getContext('2d')?.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const imageBase64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+
+    setIsRecognizing(true);
+    setError(null);
+    try {
+      setRecognition(await postJson<SignRecognitionResult>('/api/gemini/recognize-sign', { imageBase64, mimeType: 'image/jpeg' }));
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setIsRecognizing(false);
     }
   };
 
@@ -175,17 +135,17 @@ export const SignInterpreterEngine: React.FC = () => {
       <div className="flex flex-col lg:flex-row gap-6 items-start justify-between bg-slate-900 border border-slate-800 rounded-xl p-6">
         <div className="space-y-2 max-w-2xl">
           <div className="flex items-center gap-2 text-xs text-slate-400">
-            <span>Multimodal GenAI</span>
-            <span aria-hidden="true">·</span>
             <span>American Sign Language</span>
             <span aria-hidden="true">·</span>
-            <span>Real-Time Gloss Synthesis</span>
+            <span>Interpreter preparation</span>
           </div>
           <h2 className="text-xl font-bold text-white tracking-tight">
-            Sign Language Avatar & Recognition Engine
+            ASL Prep & Sign Practice
           </h2>
           <p className="text-sm text-slate-300 leading-relaxed">
-            Bidirectional translation between speech/text and American Sign Language. Features an expressive keyframe-articulated signing avatar, grammatical ASL Gloss translation, and webcam gesture recognition for interactive event engagement.
+            Draft ASL gloss for speeches and announcements to send to your interpreter team ahead of the event, preview
+            common event signs, and let hearing hosts practise signs with camera feedback. These are preparation aids:
+            they do not replace qualified Deaf or hearing interpreters.
           </p>
         </div>
 
@@ -199,10 +159,8 @@ export const SignInterpreterEngine: React.FC = () => {
           </div>
           <div className="w-px h-8 bg-slate-800" />
           <div>
-            <div className="text-slate-400">Recognition Model</div>
-            <div className="text-base font-semibold text-white font-mono">
-              21-Point Skeletal
-            </div>
+            <div className="text-slate-400">Sign check</div>
+            <div className="text-base font-semibold text-white font-mono">Gemini vision</div>
           </div>
         </div>
       </div>
@@ -223,12 +181,14 @@ export const SignInterpreterEngine: React.FC = () => {
             <div className="flex items-center gap-2 bg-slate-950 border border-slate-800 rounded-lg p-1">
               <button
                 onClick={() => setIsPlaying(!isPlaying)}
+                aria-pressed={isPlaying}
                 className="px-3 py-1 text-xs font-medium text-slate-200 hover:text-white bg-slate-800 hover:bg-slate-700 rounded transition-colors cursor-pointer"
               >
                 {isPlaying ? 'Pause' : 'Play'}
               </button>
               <button
                 onClick={() => setPlaybackSpeed(playbackSpeed === 1.0 ? 0.6 : playbackSpeed === 0.6 ? 1.4 : 1.0)}
+                aria-label={`Playback speed ${playbackSpeed}x. Activate to change`}
                 className="px-2 py-1 text-xs font-mono tabular-nums text-slate-300 hover:text-white rounded transition-colors cursor-pointer"
               >
                 {playbackSpeed}x Speed
@@ -240,6 +200,8 @@ export const SignInterpreterEngine: React.FC = () => {
           <div className="relative w-full h-80 bg-slate-950 border border-slate-800/80 rounded-lg overflow-hidden flex items-center justify-center">
             {/* Avatar Head, Torso & Articulated Hands SVG */}
             <svg
+              role="img"
+              aria-label={`Simplified avatar signing ${selectedSign.gloss} (${selectedSign.english}). ${selectedSign.handshape}; ${selectedSign.movement}.`}
               viewBox="0 0 100 100"
               className="w-full h-full max-w-xs transition-transform duration-300"
               style={{
@@ -357,7 +319,7 @@ export const SignInterpreterEngine: React.FC = () => {
               <div className="text-slate-300">
                 <span className="text-teal-400 font-mono font-semibold">{selectedSign.gloss}</span>: {selectedSign.nonManual}
               </div>
-              <div className="text-slate-500 font-mono tabular-nums">
+              <div className="text-slate-400 font-mono tabular-nums">
                 Frame {currentFrameIndex + 1}/{selectedSign.keyframes.length}
               </div>
             </div>
@@ -372,6 +334,7 @@ export const SignInterpreterEngine: React.FC = () => {
                 return (
                   <button
                     key={sign.gloss}
+                    aria-pressed={isSelected}
                     onClick={() => {
                       setSelectedSign(sign);
                       setCurrentFrameIndex(0);
@@ -403,154 +366,152 @@ export const SignInterpreterEngine: React.FC = () => {
           </div>
         </div>
 
-        {/* Right Column: Sign Recognition & Translation (5 cols) */}
+        {/* Right Column: Interpreter prep & sign practice (5 cols) */}
         <div className="lg:col-span-5 space-y-6">
-          {/* Webcam Sign Input Card */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-semibold text-white">Live Camera Sign Recognition</h3>
-                <p className="text-xs text-slate-400">Detect attendee sign responses & applause</p>
-              </div>
-              <button
-                onClick={() => setIsCameraActive(!isCameraActive)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer ${
-                  isCameraActive
-                    ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 hover:bg-rose-500/30'
-                    : 'bg-teal-500/20 text-teal-300 border border-teal-500/40 hover:bg-teal-500/30'
-                }`}
-              >
-                {isCameraActive ? 'Stop Camera' : 'Start Camera'}
-              </button>
-            </div>
+          <ErrorNotice message={error} onDismiss={() => setError(null)} />
 
-            {/* Video Viewport / Canvas */}
-            <div className="relative w-full h-52 bg-slate-950 border border-slate-800 rounded-lg overflow-hidden flex items-center justify-center">
-              {isCameraActive ? (
-                <>
-                  <video
-                    ref={videoRef}
-                    playsInline
-                    muted
-                    className="absolute inset-0 w-full h-full object-cover opacity-60"
-                  />
-                  <canvas
-                    ref={canvasRef}
-                    width={480}
-                    height={360}
-                    className="absolute inset-0 w-full h-full pointer-events-none"
-                  />
-                  <div className="absolute top-2 left-2 bg-slate-950/80 border border-slate-800 text-[11px] text-teal-300 px-2 py-0.5 rounded font-mono">
-                    Tracking 2 Hands Active
-                  </div>
-                </>
-              ) : (
-                <div className="text-center p-6 space-y-2">
-                  <div className="text-slate-500 text-xs">
-                    Camera inactive. Click "Start Camera" to enable interactive hand gesture tracking.
-                  </div>
-                  <div className="flex justify-center gap-2">
-                    <button
-                      onClick={() => {
-                        setDetectedSign('CELEBRATE');
-                        setDetectionConfidence(98);
-                      }}
-                      className="px-2.5 py-1 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded cursor-pointer"
-                    >
-                      Simulate "CELEBRATE"
-                    </button>
-                    <button
-                      onClick={() => {
-                        setDetectedSign('THANK-YOU');
-                        setDetectionConfidence(94);
-                      }}
-                      className="px-2.5 py-1 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded cursor-pointer"
-                    >
-                      Simulate "THANK-YOU"
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Real-time Recognition Output */}
-            <div className="bg-slate-950 border border-slate-800 rounded-lg p-3 flex items-center justify-between text-xs">
-              <div>
-                <span className="text-slate-400">Detected Sign: </span>
-                <span className="text-teal-400 font-mono font-bold">{detectedSign}</span>
-              </div>
-              <div className="text-slate-400">
-                Confidence: <span className="text-white font-mono tabular-nums">{detectionConfidence}%</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Text-to-ASL-Gloss Translator Card */}
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4">
             <div>
-              <h3 className="text-sm font-semibold text-white">Speech & Text to ASL Gloss Translator</h3>
-              <p className="text-xs text-slate-400">Generates authentic ASL syntax and non-manual markers</p>
+              <h3 className="text-sm font-semibold text-white">Speech to ASL gloss (interpreter prep)</h3>
+              <p className="text-xs text-slate-400">
+                Draft gloss and facial grammar notes to share with interpreters before the event.
+              </p>
             </div>
 
             <div className="space-y-2">
+              <label htmlFor="gloss-input" className="sr-only">
+                English text to draft as ASL gloss
+              </label>
               <textarea
+                id="gloss-input"
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
                 placeholder="Enter event speech, vow, or announcement..."
-                rows={3}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-teal-500 resize-none font-sans"
+                rows={4}
+                maxLength={1500}
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-teal-500 resize-y font-sans"
               />
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex gap-1.5">
                   <button
                     onClick={() => setInputText('Marcus, I promise to love you and cherish our life together.')}
                     className="text-[11px] text-slate-400 hover:text-slate-200 underline cursor-pointer"
                   >
-                    Preset Vows
+                    Example vows
                   </button>
-                  <span className="text-slate-600">·</span>
+                  <span aria-hidden="true" className="text-slate-600">·</span>
                   <button
                     onClick={() => setInputText('Dinner is served! Please join us at the banquet tables.')}
                     className="text-[11px] text-slate-400 hover:text-slate-200 underline cursor-pointer"
                   >
-                    Dinner Call
+                    Example dinner call
                   </button>
                 </div>
                 <button
                   onClick={handleTranslateText}
-                  disabled={isTranslating}
+                  disabled={isTranslating || !inputText.trim()}
                   className="px-3 py-1.5 text-xs font-medium text-slate-950 bg-teal-400 hover:bg-teal-300 disabled:opacity-50 rounded-lg transition-colors cursor-pointer"
                 >
-                  {isTranslating ? 'Synthesizing...' : 'Translate to ASL'}
+                  {isTranslating ? 'Drafting…' : 'Draft ASL gloss'}
                 </button>
               </div>
             </div>
 
-            {/* Gloss Result Output */}
-            {glossResult && (
-              <div className="bg-slate-950/80 border border-slate-800/80 rounded-lg p-3 space-y-3 text-xs">
-                <div>
-                  <div className="text-[11px] text-slate-400 font-medium">ASL Gloss Representation</div>
-                  <div className="font-mono text-teal-300 font-bold tracking-wide mt-0.5">
-                    {glossResult.aslGloss}
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <div className="text-[11px] text-slate-400 font-medium">Facial Grammar (NMM)</div>
-                  <div className="text-slate-300 text-[11px] leading-relaxed">
-                    {glossResult.nonManualMarkers}
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <div className="text-[11px] text-slate-400 font-medium">Spatial Referencing Notes</div>
-                  <div className="text-slate-300 text-[11px] leading-relaxed">
-                    {glossResult.spatialGrammarNotes}
-                  </div>
-                </div>
+            <div className="bg-slate-950/80 border border-slate-800/80 rounded-lg p-3 space-y-3 text-xs" aria-live="polite">
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-[11px] text-slate-400 font-medium">ASL gloss</div>
+                <SourceBadge source={glossResult.source} />
               </div>
-            )}
+              <div className="font-mono text-teal-300 font-bold tracking-wide">{glossResult.aslGloss}</div>
+              <div className="space-y-1">
+                <div className="text-[11px] text-slate-400 font-medium">Facial grammar (non-manual markers)</div>
+                <div className="text-slate-300 text-[11px] leading-relaxed">{glossResult.nonManualMarkers}</div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-[11px] text-slate-400 font-medium">Spatial referencing notes</div>
+                <div className="text-slate-300 text-[11px] leading-relaxed">{glossResult.spatialGrammarNotes}</div>
+              </div>
+              {glossResult.signBreakdown && glossResult.signBreakdown.length > 0 && (
+                <ol className="space-y-1.5 border-t border-slate-800 pt-2">
+                  {glossResult.signBreakdown.map((step, idx) => (
+                    <li key={idx} className="text-[11px] text-slate-300">
+                      <span className="font-mono text-teal-300 font-semibold">{step.gloss}</span>{' '}
+                      <span className="text-slate-400">({step.timing})</span>: {step.description}
+                      {step.expression ? <span className="text-slate-400">; {step.expression}</span> : null}
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </div>
+          </div>
+
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-semibold text-white">Sign practice with camera feedback</h3>
+                <p className="text-xs text-slate-400">
+                  For hearing hosts learning a few signs. Checks one still frame, so movement-based signs may be missed.
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setIsCameraActive(!isCameraActive);
+                  setRecognition(null);
+                }}
+                aria-pressed={isCameraActive}
+                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer shrink-0 ${
+                  isCameraActive
+                    ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 hover:bg-rose-500/30'
+                    : 'bg-teal-500/20 text-teal-300 border border-teal-500/40 hover:bg-teal-500/30'
+                }`}
+              >
+                {isCameraActive ? 'Stop camera' : 'Start camera'}
+              </button>
+            </div>
+
+            <div className="relative w-full aspect-[4/3] bg-slate-950 border border-slate-800 rounded-lg overflow-hidden flex items-center justify-center">
+              {isCameraActive ? (
+                <video
+                  ref={videoRef}
+                  playsInline
+                  muted
+                  aria-label="Your camera preview"
+                  className="absolute inset-0 w-full h-full object-cover -scale-x-100"
+                />
+              ) : (
+                <p className="text-slate-400 text-xs p-6 text-center">
+                  Camera is off. Frames are only sent when you press “Check my sign” and are not stored.
+                </p>
+              )}
+            </div>
+
+            <button
+              onClick={handleRecognizeSign}
+              disabled={!isCameraActive || isRecognizing}
+              className="w-full py-2 text-xs font-semibold text-slate-950 bg-teal-400 hover:bg-teal-300 disabled:opacity-50 rounded-lg transition-colors cursor-pointer"
+            >
+              {isRecognizing ? 'Checking…' : 'Check my sign'}
+            </button>
+
+            <div aria-live="polite">
+              {recognition && (
+                <div className="bg-slate-950 border border-slate-800 rounded-lg p-3 text-xs space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span>
+                      <span className="text-slate-400">Looks like: </span>
+                      <span className="text-teal-300 font-mono font-bold">{recognition.gloss}</span>
+                      {recognition.english && <span className="text-slate-300"> ({recognition.english})</span>}
+                    </span>
+                    <span className="text-slate-400">
+                      Model confidence:{' '}
+                      <span className="text-white font-mono tabular-nums">{Math.round(recognition.confidence * 100)}%</span>
+                    </span>
+                  </div>
+                  {!recognition.handsVisible && <div className="text-amber-300">No hands detected. Step back so both hands are in frame.</div>}
+                  {recognition.notes && <div className="text-slate-400">{recognition.notes}</div>}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

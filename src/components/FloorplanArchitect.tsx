@@ -1,7 +1,16 @@
-import React, { useState, useRef, useCallback } from 'react';
-import { INITIAL_TABLES } from '../data/initialBlueprint';
+import React, { useMemo, useRef, useState } from 'react';
 import { SightlineTable } from '../types';
 import { FloorplanLegend, FloorplanFilterType } from './FloorplanLegend';
+import {
+  CENTERPIECE_MAX_INCHES,
+  VENUE_ANCHORS,
+  analyzeTableSightline,
+  clampToCanvas,
+  isPriorityTable,
+  nearestCartScreen,
+  summarizeRoom,
+  type SightlineAnalysis,
+} from '../utils/sightline';
 
 interface DragState {
   tableId: string;
@@ -9,172 +18,38 @@ interface DragState {
   offsetY: number;
 }
 
-interface SightlineAnalysis {
-  distanceToInterpreter: number;
-  distanceToSpeaker: number;
-  distanceToCart: number;
-  status: 'clear' | 'fair' | 'obstructed';
-  obstructionReason?: string;
-  angleToInterpreter: number;
-  blockedByTableId?: string;
+interface FloorplanArchitectProps {
+  tables: SightlineTable[];
+  onChangeTables: (tables: SightlineTable[]) => void;
 }
 
-export const FloorplanArchitect: React.FC = () => {
-  const [tables, setTables] = useState<SightlineTable[]>(INITIAL_TABLES);
-  const [selectedTableId, setSelectedTableId] = useState<string>('tbl-1');
+const STATUS_TEXT = { clear: 'clear sightline', fair: 'partial sightline', obstructed: 'obstructed sightline' } as const;
+
+export const FloorplanArchitect: React.FC<FloorplanArchitectProps> = ({ tables, onChangeTables }) => {
+  const [selectedTableId, setSelectedTableId] = useState<string>(tables[0]?.id ?? '');
   const [showRays, setShowRays] = useState<boolean>(true);
   const [showAllRays, setShowAllRays] = useState<boolean>(false);
   const [showSigningCone, setShowSigningCone] = useState<boolean>(true);
   const [showWheelchairClearance, setShowWheelchairClearance] = useState<boolean>(true);
-  const [globalCenterpieceLimit, setGlobalCenterpieceLimit] = useState<number>(8.5);
+  const globalCenterpieceLimit = 8.5;
   const [activeFilter, setActiveFilter] = useState<FloorplanFilterType>('all');
+  const [announcement, setAnnouncement] = useState('');
 
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [dragState, setDragState] = useState<DragState | null>(null);
 
-  // Stage & Focal Targets (Coordinates on 800x500 canvas)
-  const interpreterStage = { x: 260, y: 55, label: 'ASL Interpreter Dias (18" Riser)' };
-  const speakerPodium = { x: 400, y: 45, label: 'Speaker / Couple Altar' };
-  const leftCartScreen = { x: 120, y: 70, label: '75" Low-Glare CART Screen Left' };
-  const rightCartScreen = { x: 680, y: 70, label: '75" Low-Glare CART Screen Right' };
-  const sensoryDanceFloor = { x: 400, y: 220, label: 'Sound-to-Light Sensory Floor (16x16ft)' };
+  const { interpreter: interpreterStage, speaker: speakerPodium, leftCart: leftCartScreen, rightCart: rightCartScreen, danceFloor: sensoryDanceFloor } =
+    VENUE_ANCHORS;
 
-  // Helper: check if a table is categorized as a Priority Sightline Table vs Standard Guest Table
-  const isPriorityTable = (tbl: SightlineTable): boolean => {
-    return (
-      tbl.shape === 'crescent' ||
-      tbl.shape === 'u-shape' ||
-      tbl.tableType === 'dhh-crescent' ||
-      tbl.tableType === 'wheelchair-pod' ||
-      tbl.tableType === 'cart-pod' ||
-      tbl.tableType === 'tactile-close' ||
-      (tbl.wheelchairSpots ?? 0) > 0 ||
-      tbl.dhhGuestCount >= 4
-    );
-  };
+  const setTables = (updater: SightlineTable[] | ((prev: SightlineTable[]) => SightlineTable[])) =>
+    onChangeTables(typeof updater === 'function' ? updater(tables) : updater);
 
-  // Helper: calculate distance from point (px, py) to line segment (x1, y1) -> (x2, y2)
-  const distancePointToSegment = (
-    px: number,
-    py: number,
-    x1: number,
-    y1: number,
-    x2: number,
-    y2: number
-  ): { dist: number; t: number } => {
-    const l2 = (x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1);
-    if (l2 === 0) return { dist: Math.hypot(px - x1, py - y1), t: 0 };
-    const t = Math.max(0, Math.min(1, ((px - x1) * (x2 - x1) + (py - y1) * (y2 - y1)) / l2));
-    const projX = x1 + t * (x2 - x1);
-    const projY = y1 + t * (y2 - y1);
-    return { dist: Math.hypot(px - projX, py - projY), t };
-  };
-
-  // Evaluate sightline for any given table
-  const analyzeTableSightline = useCallback(
-    (tbl: SightlineTable): SightlineAnalysis => {
-      const distInterpreter = Math.hypot(tbl.x - interpreterStage.x, tbl.y - interpreterStage.y);
-      const distSpeaker = Math.hypot(tbl.x - speakerPodium.x, tbl.y - speakerPodium.y);
-      const nearestCart = tbl.x < 400 ? leftCartScreen : rightCartScreen;
-      const distCart = Math.hypot(tbl.x - nearestCart.x, tbl.y - nearestCart.y);
-
-      // Angle calculation in degrees from normal vertical line
-      const dx = tbl.x - interpreterStage.x;
-      const dy = tbl.y - interpreterStage.y;
-      const angleRad = Math.atan2(dx, dy);
-      const angleDeg = Math.round((angleRad * 180) / Math.PI);
-
-      // Check 1: Centerpiece height violation
-      if (tbl.centerpieceHeightInches > 9.5) {
-        return {
-          distanceToInterpreter: Math.round(distInterpreter),
-          distanceToSpeaker: Math.round(distSpeaker),
-          distanceToCart: Math.round(distCart),
-          status: 'obstructed',
-          obstructionReason: `Centerpiece (${tbl.centerpieceHeightInches}") exceeds 9.5" DeafSpace eye-level cap`,
-          angleToInterpreter: angleDeg,
-        };
-      }
-
-      // Check 2: Intervening table obstruction along ray to ASL Dias
-      for (const other of tables) {
-        if (other.id === tbl.id) continue;
-        const { dist, t } = distancePointToSegment(
-          other.x,
-          other.y,
-          tbl.x,
-          tbl.y,
-          interpreterStage.x,
-          interpreterStage.y + 10
-        );
-        // If other table is between them (0.15 < t < 0.88) and within collision corridor (< 28px radius)
-        if (t > 0.15 && t < 0.88 && dist < 28) {
-          return {
-            distanceToInterpreter: Math.round(distInterpreter),
-            distanceToSpeaker: Math.round(distSpeaker),
-            distanceToCart: Math.round(distCart),
-            status: 'obstructed',
-            obstructionReason: `Sightline to ASL dais blocked by ${other.name}`,
-            angleToInterpreter: angleDeg,
-            blockedByTableId: other.id,
-          };
-        }
-      }
-
-      // Check 3: Intervening sensory floor equipment collision
-      const sensoryDist = distancePointToSegment(
-        sensoryDanceFloor.x,
-        sensoryDanceFloor.y,
-        tbl.x,
-        tbl.y,
-        interpreterStage.x,
-        interpreterStage.y
-      );
-      if (sensoryDist.t > 0.1 && sensoryDist.t < 0.9 && sensoryDist.dist < 32 && tbl.x > 320 && tbl.y > 280) {
-        return {
-          distanceToInterpreter: Math.round(distInterpreter),
-          distanceToSpeaker: Math.round(distSpeaker),
-          distanceToCart: Math.round(distCart),
-          status: 'fair',
-          obstructionReason: 'Peripheral angle across sensory floor edge',
-          angleToInterpreter: angleDeg,
-        };
-      }
-
-      // Check 4: Distance check (DeafSpace signing readability threshold)
-      if (distInterpreter > 370) {
-        return {
-          distanceToInterpreter: Math.round(distInterpreter),
-          distanceToSpeaker: Math.round(distSpeaker),
-          distanceToCart: Math.round(distCart),
-          status: 'fair',
-          obstructionReason: `Extended distance (${Math.round(distInterpreter / 10)}ft eq) reduces signing nuance clarity`,
-          angleToInterpreter: angleDeg,
-        };
-      }
-
-      // Check 5: Extreme angle check
-      if (angleDeg < -65 || angleDeg > 75) {
-        return {
-          distanceToInterpreter: Math.round(distInterpreter),
-          distanceToSpeaker: Math.round(distSpeaker),
-          distanceToCart: Math.round(distCart),
-          status: 'fair',
-          obstructionReason: `Sharp viewing angle (${angleDeg}°) requires neck strain`,
-          angleToInterpreter: angleDeg,
-        };
-      }
-
-      return {
-        distanceToInterpreter: Math.round(distInterpreter),
-        distanceToSpeaker: Math.round(distSpeaker),
-        distanceToCart: Math.round(distCart),
-        status: 'clear',
-        angleToInterpreter: angleDeg,
-      };
-    },
-    [tables, interpreterStage, speakerPodium, leftCartScreen, rightCartScreen, sensoryDanceFloor]
+  // Each analysis scans every other table, so compute once per layout change, not per render pass.
+  const analyses = useMemo(
+    () => new Map<string, SightlineAnalysis>(tables.map((t) => [t.id, analyzeTableSightline(t, tables)])),
+    [tables]
   );
+  const analysisFor = (tbl: SightlineTable) => analyses.get(tbl.id) ?? analyzeTableSightline(tbl, tables);
 
   const selectedTable = tables.find((t) => t.id === selectedTableId) || tables[0] || {
     id: 'tbl-1',
@@ -187,7 +62,7 @@ export const FloorplanArchitect: React.FC = () => {
     dhhGuestCount: 6,
   };
 
-  const selectedAnalysis = analyzeTableSightline(selectedTable);
+  const selectedAnalysis = analysisFor(selectedTable);
 
   // SVG coordinate converter for Pointer events
   const getSvgCoordinates = (e: React.PointerEvent<SVGSVGElement>): { x: number; y: number } | null => {
@@ -228,16 +103,33 @@ export const FloorplanArchitect: React.FC = () => {
     const coords = getSvgCoordinates(e);
     if (!coords) return;
 
-    const newX = Math.round(coords.x - dragState.offsetX);
-    const newY = Math.round(coords.y - dragState.offsetY);
+    const { x, y } = clampToCanvas({ x: coords.x - dragState.offsetX, y: coords.y - dragState.offsetY });
+    setTables((prev) => prev.map((t) => (t.id === dragState.tableId ? { ...t, x, y } : t)));
+  };
 
-    // Keep tables clamped inside usable room boundaries
-    const clampedX = Math.max(50, Math.min(750, newX));
-    const clampedY = Math.max(105, Math.min(460, newY));
-
-    setTables((prev) =>
-      prev.map((t) => (t.id === dragState.tableId ? { ...t, x: clampedX, y: clampedY } : t))
-    );
+  // Keyboard alternative to dragging: arrows move 10px (≈1ft), Shift+arrows move 40px.
+  const handleTableKeyDown = (e: React.KeyboardEvent, tbl: SightlineTable) => {
+    const step = e.shiftKey ? 40 : 10;
+    const delta: Record<string, [number, number]> = {
+      ArrowUp: [0, -step],
+      ArrowDown: [0, step],
+      ArrowLeft: [-step, 0],
+      ArrowRight: [step, 0],
+    };
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      setSelectedTableId(tbl.id);
+      return;
+    }
+    const move = delta[e.key];
+    if (!move) return;
+    e.preventDefault();
+    setSelectedTableId(tbl.id);
+    const next = clampToCanvas({ x: tbl.x + move[0], y: tbl.y + move[1] });
+    const updated = tables.map((t) => (t.id === tbl.id ? { ...t, ...next } : t));
+    onChangeTables(updated);
+    const status = analyzeTableSightline({ ...tbl, ...next }, updated).status;
+    setAnnouncement(`${tbl.name.split('(')[0].trim()} moved to ${next.x}, ${next.y}: ${STATUS_TEXT[status]}`);
   };
 
   const handlePointerUp = () => {
@@ -412,19 +304,16 @@ export const FloorplanArchitect: React.FC = () => {
     );
   };
 
-  // Overall Room Accessibility Metrics
-  const totalSeats = tables.reduce((acc, t) => acc + t.seats, 0);
-  const totalDhhGuests = tables.reduce((acc, t) => acc + t.dhhGuestCount, 0);
-  const tableAnalyses = tables.map((t) => ({ table: t, analysis: analyzeTableSightline(t) }));
-  const clearSightlineTables = tableAnalyses.filter((item) => item.analysis.status === 'clear').length;
-  const obstructedTablesCount = tableAnalyses.filter((item) => item.analysis.status === 'obstructed').length;
-  const clearRate = Math.round((clearSightlineTables / tables.length) * 100);
-
-  // Split into Priority Sightline vs Standard Guest Tables
-  const priorityTables = tables.filter(isPriorityTable);
-  const standardTables = tables.filter((t) => !isPriorityTable(t));
-  const priorityCount = priorityTables.length;
-  const standardCount = standardTables.length;
+  const room = useMemo(() => summarizeRoom(tables), [tables]);
+  const {
+    totalSeats,
+    dhhSeats: totalDhhGuests,
+    clearCount: clearSightlineTables,
+    obstructedCount: obstructedTablesCount,
+    clearRate,
+    priorityCount,
+  } = room;
+  const standardCount = tables.length - priorityCount;
 
   return (
     <div className="space-y-8">
@@ -491,14 +380,14 @@ export const FloorplanArchitect: React.FC = () => {
             className="group p-2.5 rounded-lg border border-teal-500/30 bg-teal-950/20 hover:bg-teal-900/40 text-left transition-all cursor-pointer flex flex-col justify-between"
           >
             <div className="flex items-center justify-between">
-              <span className="text-lg">🌙</span>
-              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-teal-500/20 text-teal-300 font-semibold">
+              <span aria-hidden="true" className="text-lg">🌙</span>
+              <span className="text-[11px] font-mono px-1.5 py-0.5 rounded bg-teal-500/20 text-teal-300 font-semibold">
                 + Add
               </span>
             </div>
             <div className="mt-2">
               <div className="text-xs font-bold text-teal-200 group-hover:text-teal-100">DHH Crescent</div>
-              <div className="text-[10px] text-slate-400 leading-tight">Priority sightline open curve</div>
+              <div className="text-[11px] text-slate-400 leading-tight">Priority sightline open curve</div>
             </div>
           </button>
 
@@ -507,14 +396,14 @@ export const FloorplanArchitect: React.FC = () => {
             className="group p-2.5 rounded-lg border border-sky-500/30 bg-sky-950/20 hover:bg-sky-900/40 text-left transition-all cursor-pointer flex flex-col justify-between"
           >
             <div className="flex items-center justify-between">
-              <span className="text-lg">♿</span>
-              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 font-semibold">
+              <span aria-hidden="true" className="text-lg">♿</span>
+              <span className="text-[11px] font-mono px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 font-semibold">
                 + Add
               </span>
             </div>
             <div className="mt-2">
               <div className="text-xs font-bold text-sky-200 group-hover:text-sky-100">Wheelchair Pod</div>
-              <div className="text-[10px] text-slate-400 leading-tight">60" ADA aisle turning radius</div>
+              <div className="text-[11px] text-slate-400 leading-tight">60" ADA aisle turning radius</div>
             </div>
           </button>
 
@@ -523,14 +412,14 @@ export const FloorplanArchitect: React.FC = () => {
             className="group p-2.5 rounded-lg border border-indigo-500/30 bg-indigo-950/20 hover:bg-indigo-900/40 text-left transition-all cursor-pointer flex flex-col justify-between"
           >
             <div className="flex items-center justify-between">
-              <span className="text-lg">📺</span>
-              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-semibold">
+              <span aria-hidden="true" className="text-lg">📺</span>
+              <span className="text-[11px] font-mono px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-semibold">
                 + Add
               </span>
             </div>
             <div className="mt-2">
               <div className="text-xs font-bold text-indigo-200 group-hover:text-indigo-100">CART View Pod</div>
-              <div className="text-[10px] text-slate-400 leading-tight">Perpendicular to caption screen</div>
+              <div className="text-[11px] text-slate-400 leading-tight">Perpendicular to caption screen</div>
             </div>
           </button>
 
@@ -539,14 +428,14 @@ export const FloorplanArchitect: React.FC = () => {
             className="group p-2.5 rounded-lg border border-amber-500/30 bg-amber-950/20 hover:bg-amber-900/40 text-left transition-all cursor-pointer flex flex-col justify-between"
           >
             <div className="flex items-center justify-between">
-              <span className="text-lg">🤝</span>
-              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-semibold">
+              <span aria-hidden="true" className="text-lg">🤝</span>
+              <span className="text-[11px] font-mono px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-semibold">
                 + Add
               </span>
             </div>
             <div className="mt-2">
               <div className="text-xs font-bold text-amber-200 group-hover:text-amber-100">DeafBlind Front</div>
-              <div className="text-[10px] text-slate-400 leading-tight">Tactile / Close-Vision zone</div>
+              <div className="text-[11px] text-slate-400 leading-tight">Tactile / Close-Vision zone</div>
             </div>
           </button>
 
@@ -555,14 +444,14 @@ export const FloorplanArchitect: React.FC = () => {
             className="group p-2.5 rounded-lg border border-slate-700 bg-slate-950/60 hover:bg-slate-800 text-left transition-all cursor-pointer flex flex-col justify-between"
           >
             <div className="flex items-center justify-between">
-              <span className="text-lg">⚪</span>
-              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 font-semibold">
+              <span aria-hidden="true" className="text-lg">⚪</span>
+              <span className="text-[11px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 font-semibold">
                 + Add
               </span>
             </div>
             <div className="mt-2">
               <div className="text-xs font-bold text-slate-200 group-hover:text-white">Standard Radial</div>
-              <div className="text-[10px] text-slate-400 leading-tight">Standard 8-person banquet</div>
+              <div className="text-[11px] text-slate-400 leading-tight">Standard 8-person banquet</div>
             </div>
           </button>
         </div>
@@ -629,6 +518,8 @@ export const FloorplanArchitect: React.FC = () => {
             <svg
               ref={svgRef}
               viewBox="0 0 800 500"
+              role="group"
+              aria-label="Venue floorplan. Tab to a table, then use arrow keys to move it; hold Shift for larger steps."
               className="w-full h-full cursor-crosshair"
               onPointerMove={handlePointerMove}
               onPointerUp={handlePointerUp}
@@ -746,7 +637,7 @@ export const FloorplanArchitect: React.FC = () => {
                 tables
                   .filter((tbl) => showAllRays || tbl.id === selectedTableId)
                   .map((tbl) => {
-                    const analysis = analyzeTableSightline(tbl);
+                    const analysis = analysisFor(tbl);
                     const isSelected = tbl.id === selectedTableId;
                     const isClear = analysis.status === 'clear';
                     const isObstructed = analysis.status === 'obstructed';
@@ -783,8 +674,8 @@ export const FloorplanArchitect: React.FC = () => {
                             <line
                               x1={tbl.x}
                               y1={tbl.y}
-                              x2={tbl.x < 400 ? leftCartScreen.x : rightCartScreen.x}
-                              y2={tbl.x < 400 ? leftCartScreen.y + 10 : rightCartScreen.y + 10}
+                              x2={nearestCartScreen(tbl).x}
+                              y2={nearestCartScreen(tbl).y + 10}
                               stroke="#38bdf8"
                               strokeWidth="1.5"
                               strokeDasharray="4 2"
@@ -800,7 +691,7 @@ export const FloorplanArchitect: React.FC = () => {
               {tables.map((tbl) => {
                 const isSelected = tbl.id === selectedTableId;
                 const isDragging = dragState?.tableId === tbl.id;
-                const analysis = analyzeTableSightline(tbl);
+                const analysis = analysisFor(tbl);
                 const isClear = analysis.status === 'clear';
                 const isObstructed = analysis.status === 'obstructed';
                 const isPriority = isPriorityTable(tbl);
@@ -830,10 +721,19 @@ export const FloorplanArchitect: React.FC = () => {
                 return (
                   <g
                     key={tbl.id}
-                    className="cursor-grab active:cursor-grabbing transition-opacity duration-300"
+                    role="button"
+                    tabIndex={0}
+                    aria-pressed={isSelected}
+                    aria-label={`${tbl.name}, ${tbl.seats} seats, ${tbl.dhhGuestCount} Deaf or Hard-of-Hearing guests, ${STATUS_TEXT[analysis.status]}${
+                      analysis.obstructionReason ? `: ${analysis.obstructionReason}` : ''
+                    }. Arrow keys move the table.`}
+                    className="cursor-grab active:cursor-grabbing transition-opacity duration-300 focus:outline-none [&:focus-visible>.focus-ring]:opacity-100"
                     opacity={isDimmed ? 0.22 : 1}
                     onPointerDown={(e) => handlePointerDownTable(e, tbl.id)}
+                    onKeyDown={(e) => handleTableKeyDown(e, tbl)}
+                    onFocus={() => setSelectedTableId(tbl.id)}
                   >
+                    <circle className="focus-ring" cx={tbl.x} cy={tbl.y} r="40" fill="none" stroke="#f8fafc" strokeWidth="2" opacity="0" />
                     {/* Wheelchair 60" Clearance Circle (ADA 5-foot turning zone) */}
                     {showWheelchairClearance && (tbl.wheelchairSpots || tbl.tableType === 'wheelchair-pod') && (
                       <circle
@@ -907,7 +807,7 @@ export const FloorplanArchitect: React.FC = () => {
                       cx={tbl.x}
                       cy={tbl.y}
                       r={Math.min(9, Math.max(3, tbl.centerpieceHeightInches / 1.6))}
-                      fill={tbl.centerpieceHeightInches > 9.5 ? '#ef4444' : '#10b981'}
+                      fill={tbl.centerpieceHeightInches > CENTERPIECE_MAX_INCHES ? '#ef4444' : '#10b981'}
                     />
 
                     {/* Seating Type Icon: Crescent, Wheelchair, CART, Tactile, or Standard */}
@@ -980,7 +880,7 @@ export const FloorplanArchitect: React.FC = () => {
             )}
 
             {/* In-Canvas Mini Status Overlay */}
-            <div className="absolute bottom-2 left-2 right-2 bg-slate-950/90 backdrop-blur-md border border-slate-800 rounded px-3 py-1.5 flex flex-wrap items-center justify-between gap-2 text-[10.5px] text-slate-400">
+            <div className="absolute bottom-2 left-2 right-2 bg-slate-950/90 backdrop-blur-md border border-slate-800 rounded px-3 py-1.5 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400">
               <div className="flex items-center gap-3">
                 <span className="flex items-center gap-1 text-teal-300 font-medium">
                   <span>🌙</span> Priority Sightlines ({priorityCount})
@@ -1004,6 +904,21 @@ export const FloorplanArchitect: React.FC = () => {
               </div>
             </div>
           </div>
+
+          <p aria-live="polite" className="sr-only">
+            {announcement}
+          </p>
+          <ul className="sr-only" aria-label="Table sightline summary">
+            {tables.map((t) => {
+              const a = analysisFor(t);
+              return (
+                <li key={t.id}>
+                  {t.name}: {STATUS_TEXT[a.status]}
+                  {a.obstructionReason ? `, ${a.obstructionReason}` : ''}
+                </li>
+              );
+            })}
+          </ul>
 
           {/* Dedicated FloorplanLegend Component: Priority Sightline Seats vs Standard Guest Seating */}
           <FloorplanLegend
@@ -1034,7 +949,7 @@ export const FloorplanArchitect: React.FC = () => {
               <div className="flex items-center gap-2">
                 <h3 className="text-base font-bold text-white">{selectedTable.name}</h3>
                 <span
-                  className={`text-[10px] font-mono px-2 py-0.5 rounded font-semibold ${
+                  className={`text-[11px] font-mono px-2 py-0.5 rounded font-semibold ${
                     isPriorityTable(selectedTable)
                       ? 'bg-teal-500/20 text-teal-300 border border-teal-500/40'
                       : 'bg-slate-800 text-slate-300 border border-slate-700'
@@ -1053,6 +968,7 @@ export const FloorplanArchitect: React.FC = () => {
               <button
                 onClick={duplicateSelectedTable}
                 title="Duplicate Table"
+                aria-label={`Duplicate ${selectedTable.name}`}
                 className="p-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs transition-colors cursor-pointer"
               >
                 📋
@@ -1061,6 +977,7 @@ export const FloorplanArchitect: React.FC = () => {
                 <button
                   onClick={deleteSelectedTable}
                   title="Delete Table"
+                  aria-label={`Delete ${selectedTable.name}`}
                   className="p-1.5 rounded bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 border border-rose-800 text-xs transition-colors cursor-pointer"
                 >
                   🗑️
@@ -1094,7 +1011,7 @@ export const FloorplanArchitect: React.FC = () => {
                 '100% direct, unobstructed sightline to ASL Interpreter Dais & Stage Altar.'}
             </p>
             {selectedAnalysis.blockedByTableId && (
-              <div className="text-[10px] bg-rose-900/40 p-1.5 rounded font-mono">
+              <div className="text-[11px] bg-rose-900/40 p-1.5 rounded font-mono">
                 Recommendation: Drag {selectedTable.name} 20px outward or switch to a front crescent tier.
               </div>
             )}
@@ -1103,10 +1020,10 @@ export const FloorplanArchitect: React.FC = () => {
           {/* Centerpiece Height Adjustment Slider */}
           <div className="space-y-3 bg-slate-950/80 border border-slate-800 rounded-lg p-4">
             <div className="flex items-center justify-between text-xs">
-              <span className="text-slate-300 font-medium">Floral Centerpiece Height:</span>
+              <label htmlFor="centerpiece-height" className="text-slate-300 font-medium">Floral Centerpiece Height:</label>
               <span
                 className={`font-mono font-bold tabular-nums text-sm ${
-                  selectedTable.centerpieceHeightInches > 9.5 ? 'text-rose-400' : 'text-emerald-400'
+                  selectedTable.centerpieceHeightInches > CENTERPIECE_MAX_INCHES ? 'text-rose-400' : 'text-emerald-400'
                 }`}
               >
                 {selectedTable.centerpieceHeightInches}"
@@ -1114,6 +1031,7 @@ export const FloorplanArchitect: React.FC = () => {
             </div>
 
             <input
+              id="centerpiece-height"
               type="range"
               min="4"
               max="16"
@@ -1123,7 +1041,7 @@ export const FloorplanArchitect: React.FC = () => {
               className="w-full accent-teal-400 cursor-pointer"
             />
 
-            <div className="flex items-center justify-between text-[11px] text-slate-500 font-mono">
+            <div className="flex items-center justify-between text-[11px] text-slate-400 font-mono">
               <span>4" (Low Compliant)</span>
               <span>9.5" (Safe Limit)</span>
               <span>16" (Blocking)</span>
@@ -1142,6 +1060,7 @@ export const FloorplanArchitect: React.FC = () => {
                 <button
                   key={shape}
                   onClick={() => updateTableShape(shape)}
+                  aria-pressed={selectedTable.shape === shape}
                   className={`px-2 py-1.5 text-xs font-medium capitalize rounded border transition-colors cursor-pointer ${
                     selectedTable.shape === shape
                       ? 'bg-teal-500/20 border-teal-500 text-teal-200'
@@ -1157,24 +1076,26 @@ export const FloorplanArchitect: React.FC = () => {
           {/* Seating & Capacity Editors */}
           <div className="grid grid-cols-2 gap-3 text-xs">
             <div className="space-y-1">
-              <label className="text-slate-400">Total Seats:</label>
+              <label htmlFor="table-seats" className="text-slate-400">Total Seats:</label>
               <input
+                id="table-seats"
                 type="number"
                 min="2"
                 max="14"
                 value={selectedTable.seats}
-                onChange={(e) => updateTableSeats(parseInt(e.target.value) || 2)}
+                onChange={(e) => updateTableSeats(Math.min(14, Math.max(2, parseInt(e.target.value, 10) || 2)))}
                 className="w-full bg-slate-950 border border-slate-800 rounded px-2.5 py-1.5 text-white font-mono"
               />
             </div>
             <div className="space-y-1">
-              <label className="text-slate-400">DHH Attendees:</label>
+              <label htmlFor="table-dhh" className="text-slate-400">DHH Attendees:</label>
               <input
+                id="table-dhh"
                 type="number"
                 min="0"
                 max={selectedTable.seats}
                 value={selectedTable.dhhGuestCount}
-                onChange={(e) => updateTableDhhCount(parseInt(e.target.value) || 0)}
+                onChange={(e) => updateTableDhhCount(Math.max(0, parseInt(e.target.value, 10) || 0))}
                 className="w-full bg-slate-950 border border-slate-800 rounded px-2.5 py-1.5 text-teal-400 font-mono"
               />
             </div>

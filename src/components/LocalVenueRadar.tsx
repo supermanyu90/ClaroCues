@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
 import { EventPlan, MapsPlace, VendorItem } from '../types';
+import type { ResponseSource } from '../shared/api';
+import { errorMessage, postJson, safeExternalUrl } from '../utils/api';
+import { ErrorNotice, SourceBadge } from './ui/SourceBadge';
 
 interface LocalVenueRadarProps {
   currentPlan: EventPlan;
@@ -19,45 +22,29 @@ export const LocalVenueRadar: React.FC<LocalVenueRadarProps> = ({
   const [geoCoordinates, setGeoCoordinates] = useState<{ latitude: number; longitude: number } | null>(null);
   const [isLocating, setIsLocating] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<{
     content: string;
     places: MapsPlace[];
+    source: ResponseSource | 'sample';
   }>({
-    content: `ClaroCues Venue Radar uses Gemini 3.8 Flash grounded with real Google Maps data to locate and evaluate verified accessible venues and event vendors in real time.\n\n` +
-      `Each recommendation includes live Google Maps URLs, verified architectural accessibility details (zero-threshold entries, wide sightlines, acoustic damping), and real review snippets from Google Maps.`,
+    source: 'sample',
+    content:
+      `Search for venues to get Gemini recommendations grounded in Google Maps, with links and review snippets.\n\n` +
+      `Until you search, the cards above are examples of the access features worth checking: step-free routes, ` +
+      `even non-glare lighting for signing, hearing loops and low reverberation.`,
     places: [
-      {
-        title: 'The Glasshouse Waterfront Pavilion',
-        uri: 'https://maps.google.com/?q=The+Glasshouse+Waterfront+Pavilion',
-        reviewSnippets: [
-          'Incredible floor-to-ceiling natural light, perfect for sign language interpreters and visual comfort.',
-          'Entire venue is single-level with step-free terrace access and spacious radial dining layout.'
-        ]
-      },
-      {
-        title: 'Heritage Atrium & Cultural Hall',
-        uri: 'https://maps.google.com/?q=Heritage+Atrium+Cultural+Hall',
-        reviewSnippets: [
-          'Equipped with permanent hearing induction loop infrastructure throughout the hall.',
-          'Stage has a gentle integrated ramp with optimal interpreter spotlighting.'
-        ]
-      },
-      {
-        title: 'Skyline Modern Loft & Garden',
-        uri: 'https://maps.google.com/?q=Skyline+Modern+Loft+Event+Space',
-        reviewSnippets: [
-          'High ceilings, acoustic wall baffling that cuts reverberation, and wide elevators.',
-          'Staff was exceptionally attentive to sensory accommodation requests.'
-        ]
-      }
-    ]
+      { title: 'Example: daylight pavilion', uri: '', reviewSnippets: ['Even, non-glare lighting so signing is easy to read', 'Single level with step-free terrace access'] },
+      { title: 'Example: heritage hall', uri: '', reviewSnippets: ['Working induction hearing loop throughout', 'Stage ramp and front lighting for the interpreter'] },
+      { title: 'Example: modern loft', uri: '', reviewSnippets: ['Acoustic baffling that cuts reverberation', 'Wide lifts and clear sightlines from every table'] },
+    ],
   });
 
   const [addedVenues, setAddedVenues] = useState<Record<string, boolean>>({});
 
   const handleGeoLocate = () => {
     if (!navigator.geolocation) {
-      alert('Geolocation is not supported by your browser.');
+      setError('Location is not available in this browser. Type a city instead.');
       return;
     }
     setIsLocating(true);
@@ -71,6 +58,7 @@ export const LocalVenueRadar: React.FC<LocalVenueRadarProps> = ({
       },
       (err) => {
         console.warn('Geolocation failed:', err);
+        setError('Could not get your location. Type a city instead.');
         setIsLocating(false);
       },
       { timeout: 8000 }
@@ -82,26 +70,16 @@ export const LocalVenueRadar: React.FC<LocalVenueRadarProps> = ({
     if (!q || isLoading) return;
 
     setIsLoading(true);
+    setError(null);
     try {
       const fullQuery = cityLocation ? `${q} in ${cityLocation}` : q;
-      const res = await fetch('/api/gemini/maps-search', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          query: fullQuery,
-          location: geoCoordinates || undefined,
-        }),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        setResults({
-          content: data.content || '',
-          places: data.places || [],
-        });
-      }
+      const data = await postJson<{ content: string; places: MapsPlace[]; source: ResponseSource }>(
+        '/api/gemini/maps-search',
+        { query: fullQuery, location: geoCoordinates || undefined }
+      );
+      setResults({ content: data.content || '', places: data.places || [], source: data.source });
     } catch (err) {
-      console.error('Maps search failed:', err);
+      setError(errorMessage(err));
     } finally {
       setIsLoading(false);
     }
@@ -117,7 +95,7 @@ export const LocalVenueRadar: React.FC<LocalVenueRadarProps> = ({
         category: 'Venue & Facilities',
         name: place.title,
         contact: 'Manager on Duty',
-        emailPhone: place.uri,
+        emailPhone: '',
         status: 'Contacted',
         estimatedCost: Math.round(currentPlan.totalBudget * 0.28),
         keyQuestions: [
@@ -126,7 +104,7 @@ export const LocalVenueRadar: React.FC<LocalVenueRadarProps> = ({
           'Review acoustic wall baffle absorption ratings to prevent echo'
         ],
         deadline: '2 Weeks Out',
-        notes: `Sourced via Gemini 3.8 Flash Maps Grounding: ${place.uri}`,
+        notes: place.uri ? `Found via Google Maps: ${place.uri}` : 'Added from sample listings; verify details',
       };
       onAddVendor(newVendor);
     }
@@ -158,7 +136,7 @@ export const LocalVenueRadar: React.FC<LocalVenueRadarProps> = ({
             Venue & Vendor Radar (Google Maps Grounded)
           </h2>
           <p className="text-sm text-slate-300 leading-relaxed">
-            Scout real physical event locations and local vendors with verified architectural accessibility, capacity specs, live Google Maps links, and authentic review quotes.
+            Find venues and vendors with Gemini grounded in Google Maps, then check each one for step-free access, lighting suited to signing, hearing loops and acoustics.
           </p>
         </div>
 
@@ -185,6 +163,8 @@ export const LocalVenueRadar: React.FC<LocalVenueRadarProps> = ({
             <div className="flex-1 relative">
               <input
                 type="text"
+                aria-label="Venue search"
+                maxLength={500}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search venues, ballrooms, acoustic spaces, caterers..."
@@ -196,6 +176,8 @@ export const LocalVenueRadar: React.FC<LocalVenueRadarProps> = ({
             <div className="w-full sm:w-56 relative">
               <input
                 type="text"
+                aria-label="City or neighborhood"
+                maxLength={120}
                 value={cityLocation}
                 onChange={(e) => setCityLocation(e.target.value)}
                 placeholder="City / Neighborhood (e.g. Seattle, WA)"
@@ -209,6 +191,7 @@ export const LocalVenueRadar: React.FC<LocalVenueRadarProps> = ({
               onClick={handleGeoLocate}
               disabled={isLocating || isLoading}
               title="Use current GPS location"
+              aria-pressed={Boolean(geoCoordinates)}
               className={`px-3 py-2.5 rounded-lg border text-xs font-medium transition-colors cursor-pointer flex items-center justify-center gap-1.5 shrink-0 ${
                 geoCoordinates
                   ? 'bg-teal-500/20 border-teal-500 text-teal-300'
@@ -229,7 +212,7 @@ export const LocalVenueRadar: React.FC<LocalVenueRadarProps> = ({
 
           {/* Quick Query Presets */}
           <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
-            <span className="text-slate-500 font-medium">Quick Scouts:</span>
+            <span className="text-slate-400 font-medium">Quick Scouts:</span>
             {presetFilters.map((filter, idx) => (
               <button
                 key={idx}
@@ -247,15 +230,17 @@ export const LocalVenueRadar: React.FC<LocalVenueRadarProps> = ({
         </form>
       </div>
 
+      <ErrorNotice message={error} onDismiss={() => setError(null)} />
+
       {/* Loading Indicator */}
       {isLoading && (
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-8 text-center space-y-3">
-          <div className="inline-block w-8 h-8 border-3 border-teal-400 border-t-transparent rounded-full animate-spin" />
+        <div role="status" className="bg-slate-900 border border-slate-800 rounded-xl p-8 text-center space-y-3">
+          <div className="inline-block w-8 h-8 border-3 border-teal-400 border-t-transparent rounded-full motion-safe:animate-spin" />
           <div className="text-sm font-medium text-slate-200">
             Querying Gemini 3.8 Flash with Google Maps Grounding tool...
           </div>
-          <div className="text-xs text-slate-500 max-w-md mx-auto">
-            Extracting place IDs, real map URIs, physical accessibility credentials, and verified Google review snippets.
+          <div className="text-xs text-slate-400 max-w-md mx-auto">
+            Looking up places, map links and review snippets.
           </div>
         </div>
       )}
@@ -267,11 +252,10 @@ export const LocalVenueRadar: React.FC<LocalVenueRadarProps> = ({
           {results.places.length > 0 && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold text-slate-200 tracking-wide uppercase flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-teal-400" />
-                  Grounded Google Maps Places ({results.places.length})
+                <h3 className="text-sm font-bold text-slate-200 tracking-wide uppercase">
+                  {results.source === 'gemini' ? 'Google Maps places' : 'Example venues'} ({results.places.length})
                 </h3>
-                <span className="text-xs text-slate-500">Live URLs & Review Snippets from Maps</span>
+                <SourceBadge source={results.source} />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -287,14 +271,18 @@ export const LocalVenueRadar: React.FC<LocalVenueRadarProps> = ({
                           <h4 className="font-semibold text-white text-base leading-snug">
                             {place.title}
                           </h4>
-                          <span className="shrink-0 text-[10px] font-mono px-2 py-0.5 rounded bg-teal-500/10 text-teal-400 border border-teal-500/30">
-                            Verified Map
-                          </span>
+                          {results.source === 'gemini' && (
+                            <span className="shrink-0 text-[11px] font-mono px-2 py-0.5 rounded bg-teal-500/10 text-teal-300 border border-teal-500/30">
+                              Google Maps
+                            </span>
+                          )}
                         </div>
 
                         {place.reviewSnippets && place.reviewSnippets.length > 0 && (
                           <div className="space-y-1.5 pt-1">
-                            <div className="text-[11px] font-medium text-slate-400">Google Review Insights:</div>
+                            <div className="text-[11px] font-medium text-slate-400">
+                              {results.source === 'gemini' ? 'Google review insights:' : 'What to check:'}
+                            </div>
                             {place.reviewSnippets.map((snippet, sIdx) => (
                               <blockquote
                                 key={sIdx}
@@ -308,21 +296,23 @@ export const LocalVenueRadar: React.FC<LocalVenueRadarProps> = ({
                       </div>
 
                       <div className="pt-3 border-t border-slate-800 flex items-center gap-2">
-                        {place.uri ? (
+                        {safeExternalUrl(place.uri) ? (
                           <a
-                            href={place.uri}
+                            href={safeExternalUrl(place.uri) ?? undefined}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="flex-1 text-center px-3 py-1.5 bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-teal-300 hover:text-teal-200 text-xs font-medium rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                           >
                             <span>Open in Maps</span>
                             <span aria-hidden="true">↗</span>
+                            <span className="sr-only">: {place.title} (opens in a new tab)</span>
                           </a>
                         ) : null}
 
                         <button
                           onClick={() => handleAddToPlan(place)}
                           disabled={isAdded}
+                          aria-label={isAdded ? `${place.title} added to plan` : `Select ${place.title} as venue`}
                           className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
                             isAdded
                               ? 'bg-teal-500/20 text-teal-300 border border-teal-500/40'
@@ -344,7 +334,7 @@ export const LocalVenueRadar: React.FC<LocalVenueRadarProps> = ({
             <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-4">
               <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                 <div className="text-sm font-bold text-white">Scouting Analysis & Architectural Notes</div>
-                <div className="text-xs text-slate-400 font-mono">Gemini 3.8 Flash Synthesis</div>
+                <SourceBadge source={results.source} />
               </div>
               <div className="text-xs sm:text-sm text-slate-300 leading-relaxed whitespace-pre-wrap space-y-2">
                 {results.content}

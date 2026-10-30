@@ -1,41 +1,73 @@
-import React, { useState } from 'react';
+import React, { Suspense, lazy, useCallback, useMemo, useState } from 'react';
 import { Header, NavTab } from './components/Header';
-import { AiAssistantChat } from './components/AiAssistantChat';
-import { PersonalizedIdeasView } from './components/PersonalizedIdeasView';
-import { BudgetPlanner } from './components/BudgetPlanner';
-import { TimelineManager } from './components/TimelineManager';
-import { VendorChecklist } from './components/VendorChecklist';
-import { LocalVenueRadar } from './components/LocalVenueRadar';
-import { SignInterpreterEngine } from './components/SignInterpreterEngine';
-import { FloorplanArchitect } from './components/FloorplanArchitect';
-import { SensoryVisualConsole } from './components/SensoryVisualConsole';
+import { TabList, TabPanel, type TabDef } from './components/ui/Tabs';
 import { GeminiBlueprintModal } from './components/GeminiBlueprintModal';
 import { PdfReportModal } from './components/PdfReportModal';
 import { LiveVoiceAssistantModal } from './components/LiveVoiceAssistantModal';
-import { SAMPLE_WEDDING, SAMPLE_BIRTHDAY, SAMPLE_COMMUNITY } from './data/initialBlueprint';
-import { EventPlan, VendorItem } from './types';
+import { INITIAL_TABLES, SAMPLE_BIRTHDAY, SAMPLE_COMMUNITY, SAMPLE_WEDDING } from './data/initialBlueprint';
+import { EventPlan, SightlineTable, VendorItem } from './types';
+import { auditPlanAccessibility } from './utils/accessibilityAudit';
+import IMG_WEDDING from './assets/images/wedding.jpg';
+import IMG_DANCEFLOOR from './assets/images/dancefloor.jpg';
+import IMG_GALA from './assets/images/gala.jpg';
 
-// High-fidelity domain photography assets
-const IMG_WEDDING = '/src/assets/images/event_accessible_wedding_1793278067907.jpg';
-const IMG_DANCEFLOOR = '/src/assets/images/sensory_visual_dancefloor_1793278069214.jpg';
-const IMG_GALA = '/src/assets/images/community_gala_stage_1793278069893.jpg';
+// Each tab is its own chunk so the first paint only ships the assistant.
+const AiAssistantChat = lazy(() => import('./components/AiAssistantChat').then((m) => ({ default: m.AiAssistantChat })));
+const PersonalizedIdeasView = lazy(() => import('./components/PersonalizedIdeasView').then((m) => ({ default: m.PersonalizedIdeasView })));
+const BudgetPlanner = lazy(() => import('./components/BudgetPlanner').then((m) => ({ default: m.BudgetPlanner })));
+const TimelineManager = lazy(() => import('./components/TimelineManager').then((m) => ({ default: m.TimelineManager })));
+const VendorChecklist = lazy(() => import('./components/VendorChecklist').then((m) => ({ default: m.VendorChecklist })));
+const LocalVenueRadar = lazy(() => import('./components/LocalVenueRadar').then((m) => ({ default: m.LocalVenueRadar })));
+const SignInterpreterEngine = lazy(() => import('./components/SignInterpreterEngine').then((m) => ({ default: m.SignInterpreterEngine })));
+const FloorplanArchitect = lazy(() => import('./components/FloorplanArchitect').then((m) => ({ default: m.FloorplanArchitect })));
+const SensoryVisualConsole = lazy(() => import('./components/SensoryVisualConsole').then((m) => ({ default: m.SensoryVisualConsole })));
+const AccessReadinessAudit = lazy(() => import('./components/AccessReadinessAudit').then((m) => ({ default: m.AccessReadinessAudit })));
+
+type AccessSubTab = 'audit' | 'floorplan' | 'sensory' | 'avatar';
+
+const PRESETS = [
+  { plan: SAMPLE_WEDDING, label: 'Accessible Wedding ($28.5k)', icon: '💍' },
+  { plan: SAMPLE_BIRTHDAY, label: '40th Birthday Bash ($9.5k)', icon: '🎂' },
+  { plan: SAMPLE_COMMUNITY, label: 'Community Gala ($34k)', icon: '🎪' },
+];
+
+const HERO_IMAGES: Record<EventPlan['eventType'], string> = {
+  wedding: IMG_WEDDING,
+  birthday: IMG_DANCEFLOOR,
+  community: IMG_GALA,
+  corporate: IMG_GALA,
+};
+
+const mainTabClass = (selected: boolean) =>
+  `px-4 py-2 rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
+    selected ? 'bg-slate-800 text-teal-300 font-semibold shadow-sm' : 'text-slate-400 hover:text-slate-200'
+  }`;
+
+const subTabClass = (selected: boolean) =>
+  `px-3 py-1.5 font-medium rounded transition-colors cursor-pointer whitespace-nowrap ${
+    selected ? 'bg-slate-800 text-teal-300 font-semibold' : 'text-slate-400 hover:text-slate-200'
+  }`;
+
+const PanelFallback = () => (
+  <div role="status" className="bg-slate-900 border border-slate-800 rounded-xl p-8 text-center text-sm text-slate-400">
+    Loading…
+  </div>
+);
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<NavTab>('assistant');
   const [currentPlan, setCurrentPlan] = useState<EventPlan>(SAMPLE_WEDDING);
-  const [accessibilitySubTab, setAccessibilitySubTab] = useState<'avatar' | 'floorplan' | 'sensory' | 'audit'>('avatar');
-  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
-  const [isPdfModalOpen, setIsPdfModalOpen] = useState<boolean>(false);
-  const [isLiveVoiceOpen, setIsLiveVoiceOpen] = useState<boolean>(false);
+  const [accessSubTab, setAccessSubTab] = useState<AccessSubTab>('audit');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
+  const [isLiveVoiceOpen, setIsLiveVoiceOpen] = useState(false);
+  const [interpreterPrepText, setInterpreterPrepText] = useState<string | null>(null);
 
-  // Quick preset event switch
-  const switchEvent = (eventKey: 'wedding' | 'birthday' | 'community') => {
-    if (eventKey === 'wedding') setCurrentPlan(SAMPLE_WEDDING);
-    else if (eventKey === 'birthday') setCurrentPlan(SAMPLE_BIRTHDAY);
-    else setCurrentPlan(SAMPLE_COMMUNITY);
-  };
+  const updatePlan = useCallback((patch: Partial<EventPlan>) => setCurrentPlan((prev) => ({ ...prev, ...patch })), []);
 
-  // Financial calculations
+  const seatingLayout = currentPlan.seatingLayout ?? INITIAL_TABLES;
+  const audit = useMemo(() => auditPlanAccessibility(currentPlan, seatingLayout), [currentPlan, seatingLayout]);
+
   const totalAllocated = currentPlan.budgetAllocation.reduce((acc, b) => acc + b.amount, 0);
   const totalRemaining = currentPlan.totalBudget - totalAllocated;
   const bookedVendors = currentPlan.vendorChecklist.filter((v) => v.status === 'Booked' || v.status === 'Paid').length;
@@ -43,116 +75,82 @@ export default function App() {
   const completedTasks = allCountdownTasks.filter((t) => t.completed).length;
   const prepProgress = allCountdownTasks.length > 0 ? Math.round((completedTasks / allCountdownTasks.length) * 100) : 0;
 
-  // Active hero image based on current event
-  const heroImage =
-    currentPlan.eventType === 'wedding'
-      ? IMG_WEDDING
-      : currentPlan.eventType === 'birthday'
-      ? IMG_DANCEFLOOR
-      : IMG_GALA;
-
-  const handleAddVendorFromRadar = (newVendor: VendorItem) => {
-    setCurrentPlan((prev) => ({
-      ...prev,
-      vendorChecklist: [newVendor, ...prev.vendorChecklist],
-    }));
+  const openAccessTab = (sub: AccessSubTab) => {
+    setAccessSubTab(sub);
+    setActiveTab('accessibility');
   };
 
-  const handleUpdatePlanVenue = (venueName: string) => {
-    setCurrentPlan((prev) => ({
-      ...prev,
-      venueName,
-    }));
-  };
+  const handleSendToInterpreterPrep = useCallback((text: string) => {
+    setInterpreterPrepText(text);
+    setAccessSubTab('avatar');
+    setActiveTab('accessibility');
+  }, []);
+
+  const mainTabs: TabDef<NavTab>[] = [
+    { key: 'assistant', label: 'AI Assistant' },
+    { key: 'accessibility', label: `Accessibility Suite (${audit.score}/100)` },
+    { key: 'budget', label: `Budget ($${currentPlan.totalBudget.toLocaleString()})` },
+    { key: 'timeline', label: 'Timeline & Run-of-Show' },
+    { key: 'vendors', label: `Vendors (${currentPlan.vendorChecklist.length})` },
+    { key: 'venues', label: 'Venue Radar' },
+    { key: 'ideas', label: `Ideas (${currentPlan.personalizedIdeas.length})` },
+  ];
+
+  const accessTabs: TabDef<AccessSubTab>[] = [
+    { key: 'audit', label: 'Access Readiness Audit' },
+    { key: 'floorplan', label: 'Sightline Floorplan' },
+    { key: 'sensory', label: 'Visual & Haptic Cues' },
+    { key: 'avatar', label: 'ASL Prep & Sign Practice' },
+  ];
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-teal-500/20 selection:text-teal-200">
-      {/* Top Bar Contract Header */}
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
       <Header
-        activeTab={activeTab}
-        onSelectTab={setActiveTab}
+        onGoHome={() => setActiveTab('assistant')}
         onOpenGenerateModal={() => setIsModalOpen(true)}
         onOpenLiveVoiceModal={() => setIsLiveVoiceOpen(true)}
       />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-8 space-y-8">
-        {/* Hero Banner with Dynamic Photography & Event Preset Switcher */}
-        <section className="relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-xl">
+      <main id="main-content" tabIndex={-1} className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-8 space-y-8 focus:outline-none">
+        <section aria-labelledby="plan-title" className="relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-xl">
           <div className="grid grid-cols-1 lg:grid-cols-12 items-stretch">
-            {/* Left Content Column */}
             <div className="lg:col-span-7 p-6 sm:p-8 flex flex-col justify-between space-y-5">
               <div className="space-y-3">
                 <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400 font-medium">
-                  <span className="capitalize">{currentPlan.eventType} Planning</span>
+                  <span className="capitalize">{currentPlan.eventType} planning</span>
                   <span aria-hidden="true">·</span>
-                  <span>{currentPlan.guestCount} Guests</span>
+                  <span>{currentPlan.guestCount} guests</span>
                   <span aria-hidden="true">·</span>
-                  <span className="font-mono text-teal-400 font-semibold">${currentPlan.totalBudget.toLocaleString()} Budget</span>
+                  <span className="font-mono text-teal-400 font-semibold">${currentPlan.totalBudget.toLocaleString()} budget</span>
                   <span aria-hidden="true">·</span>
-                  <span>{currentPlan.dhhPercentage}% Accessibility Ratio</span>
+                  <span>{currentPlan.dhhPercentage}% Deaf / Hard-of-Hearing guests</span>
                 </div>
-
-                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white leading-tight">
+                <h1 id="plan-title" className="text-2xl sm:text-3xl font-bold tracking-tight text-white leading-tight">
                   {currentPlan.title}
                 </h1>
-
-                <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-2xl">
-                  {currentPlan.executiveSummary}
-                </p>
+                <p className="text-sm text-slate-300 leading-relaxed max-w-2xl">{currentPlan.executiveSummary}</p>
               </div>
 
-              {/* Event Switcher Segmented Control & Live CTAs */}
               <div className="space-y-3 pt-2 border-t border-slate-800/80">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="text-[11px] font-medium text-slate-400">Switch Active Event Demo:</div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setIsLiveVoiceOpen(true)}
-                      className="px-2.5 py-1 rounded-md bg-teal-500/10 hover:bg-teal-500/20 text-teal-300 border border-teal-500/30 text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <span className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-ping" />
-                      <span>Live Voice Mode</span>
-                    </button>
-                    <button
-                      onClick={() => setActiveTab('venues')}
-                      className="px-2.5 py-1 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition-colors flex items-center gap-1 cursor-pointer"
-                    >
-                      <span>📍 Maps Radar</span>
-                    </button>
-                  </div>
+                <div className="text-xs font-medium text-slate-400" id="preset-label">
+                  Sample events
                 </div>
-
-                <div className="flex flex-wrap items-center gap-2 text-xs">
-                  <button
-                    onClick={() => switchEvent('wedding')}
-                    className={`px-3 py-1.5 rounded-lg border transition-all cursor-pointer ${
-                      currentPlan.id === 'event-wedding'
-                        ? 'bg-teal-500/20 border-teal-500 text-teal-200 font-medium'
-                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    💍 Accessible Wedding ($28.5k)
-                  </button>
-                  <button
-                    onClick={() => switchEvent('birthday')}
-                    className={`px-3 py-1.5 rounded-lg border transition-all cursor-pointer ${
-                      currentPlan.id === 'event-birthday'
-                        ? 'bg-teal-500/20 border-teal-500 text-teal-200 font-medium'
-                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    🎂 40th Birthday Bash ($9.5k)
-                  </button>
-                  <button
-                    onClick={() => switchEvent('community')}
-                    className={`px-3 py-1.5 rounded-lg border transition-all cursor-pointer ${
-                      currentPlan.id === 'event-community'
-                        ? 'bg-teal-500/20 border-teal-500 text-teal-200 font-medium'
-                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    🎪 Community Gala ($34k)
-                  </button>
+                <div className="flex flex-wrap items-center gap-2 text-xs" role="group" aria-labelledby="preset-label">
+                  {PRESETS.map(({ plan, label, icon }) => (
+                    <button
+                      key={plan.id}
+                      onClick={() => setCurrentPlan(plan)}
+                      aria-pressed={currentPlan.id === plan.id}
+                      className={`px-3 py-1.5 rounded-lg border transition-colors cursor-pointer ${
+                        currentPlan.id === plan.id
+                          ? 'bg-teal-500/20 border-teal-500 text-teal-200 font-medium'
+                          : 'bg-slate-950 border-slate-800 text-slate-300 hover:text-white'
+                      }`}
+                    >
+                      <span aria-hidden="true">{icon} </span>
+                      {label}
+                    </button>
+                  ))}
                   <button
                     onClick={() => setIsModalOpen(true)}
                     className="px-3 py-1.5 rounded-lg bg-teal-400 text-slate-950 font-semibold hover:bg-teal-300 transition-colors cursor-pointer"
@@ -161,290 +159,199 @@ export default function App() {
                   </button>
                   <button
                     onClick={() => setIsPdfModalOpen(true)}
-                    className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium transition-colors cursor-pointer flex items-center gap-1.5"
+                    className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium transition-colors cursor-pointer"
                   >
-                    <span>Printable PDF Report</span>
+                    Printable PDF Report
                   </button>
                 </div>
               </div>
             </div>
 
-            {/* Right Media Column */}
             <div className="lg:col-span-5 relative min-h-[240px] lg:min-h-full bg-slate-950 overflow-hidden border-t lg:border-t-0 lg:border-l border-slate-800">
               <img
-                src={heroImage}
-                alt={currentPlan.title}
-                referrerPolicy="no-referrer"
-                className="w-full h-full object-cover transition-all duration-700"
-                onError={(e) => {
-                  e.currentTarget.style.display = 'none';
-                }}
+                src={HERO_IMAGES[currentPlan.eventType]}
+                alt=""
+                width={1024}
+                height={571}
+                decoding="async"
+                className="w-full h-full object-cover"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent pointer-events-none" />
-              <div className="absolute bottom-3 left-3 right-3 bg-slate-950/80 backdrop-blur-md border border-slate-800 rounded-lg px-3 py-2 text-xs">
+              <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent pointer-events-none" />
+              <div className="absolute bottom-3 left-3 right-3 bg-slate-950/85 backdrop-blur-md border border-slate-800 rounded-lg px-3 py-2 text-xs">
                 <div className="font-semibold text-white truncate">{currentPlan.venueName}</div>
-                <div className="text-[11px] text-teal-400 font-mono">{currentPlan.theme}</div>
+                <div className="text-[11px] text-teal-300 font-mono">{currentPlan.theme}</div>
               </div>
             </div>
           </div>
         </section>
 
-        {/* 4-Column KPI Health Strip */}
-        <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-1">
-            <div className="text-xs text-slate-400">Total Budget Remaining</div>
+        <section aria-label="Plan health" className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <button
+            onClick={() => openAccessTab('audit')}
+            className="text-left bg-slate-900 border border-slate-800 hover:border-teal-500/60 rounded-xl p-4 space-y-1 cursor-pointer transition-colors"
+          >
+            <div className="text-xs text-slate-400">Access readiness</div>
             <div
               className={`text-2xl font-bold font-mono tabular-nums ${
-                totalRemaining >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                audit.score >= 85 ? 'text-emerald-400' : audit.score >= 60 ? 'text-amber-400' : 'text-rose-400'
               }`}
             >
+              {audit.score}/100
+            </div>
+            <div className="text-[11px] text-slate-400">
+              {audit.counts.fail} to fix · {audit.counts.warn} to review
+            </div>
+          </button>
+
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-1">
+            <div className="text-xs text-slate-400">Budget remaining</div>
+            <div className={`text-2xl font-bold font-mono tabular-nums ${totalRemaining >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
               ${totalRemaining.toLocaleString()}
             </div>
-            <div className="text-[11px] text-slate-500 font-mono">
-              ${totalAllocated.toLocaleString()} allocated of ${currentPlan.totalBudget.toLocaleString()}
+            <div className="text-[11px] text-slate-400 font-mono">
+              ${totalAllocated.toLocaleString()} of ${currentPlan.totalBudget.toLocaleString()} allocated
             </div>
           </div>
 
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-1">
-            <div className="text-xs text-slate-400">Confirmed Vendors</div>
+            <div className="text-xs text-slate-400">Confirmed vendors</div>
             <div className="text-2xl font-bold text-teal-400 font-mono tabular-nums">
               {bookedVendors} / {currentPlan.vendorChecklist.length}
             </div>
-            <div className="text-[11px] text-slate-500">Booked & contracted partners</div>
+            <div className="text-[11px] text-slate-400">Booked or paid</div>
           </div>
 
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-1">
-            <div className="text-xs text-slate-400">Milestone Preparation</div>
-            <div className="text-2xl font-bold text-sky-400 font-mono tabular-nums">
-              {prepProgress}%
-            </div>
-            <div className="text-[11px] text-slate-500">
+            <div className="text-xs text-slate-400">Preparation progress</div>
+            <div className="text-2xl font-bold text-sky-400 font-mono tabular-nums">{prepProgress}%</div>
+            <div className="text-[11px] text-slate-400">
               {completedTasks} of {allCountdownTasks.length} checklist items done
             </div>
           </div>
-
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-1">
-            <div className="text-xs text-slate-400">Run-of-Show Milestones</div>
-            <div className="text-2xl font-bold text-amber-400 font-mono tabular-nums">
-              {currentPlan.timelineMilestones.length} Cues
-            </div>
-            <div className="text-[11px] text-slate-500">Visual & sensory choreography points</div>
-          </div>
         </section>
 
-        {/* Navigation Tabs Bar */}
-        <div className="border-b border-slate-800 flex items-center gap-1 overflow-x-auto pb-1 text-sm font-medium">
-          <button
-            onClick={() => setActiveTab('assistant')}
-            className={`px-4 py-2 rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
-              activeTab === 'assistant'
-                ? 'bg-slate-800 text-teal-300 font-semibold shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            AI Assistant & Strategy
-          </button>
-          <button
-            onClick={() => setActiveTab('ideas')}
-            className={`px-4 py-2 rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
-              activeTab === 'ideas'
-                ? 'bg-slate-800 text-teal-300 font-semibold shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            Personalized Ideas ({currentPlan.personalizedIdeas.length})
-          </button>
-          <button
-            onClick={() => setActiveTab('budget')}
-            className={`px-4 py-2 rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
-              activeTab === 'budget'
-                ? 'bg-slate-800 text-teal-300 font-semibold shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            Budget Planner (${currentPlan.totalBudget.toLocaleString()})
-          </button>
-          <button
-            onClick={() => setActiveTab('timeline')}
-            className={`px-4 py-2 rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
-              activeTab === 'timeline'
-                ? 'bg-slate-800 text-teal-300 font-semibold shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            Timelines & Run-of-Show
-          </button>
-          <button
-            onClick={() => setActiveTab('vendors')}
-            className={`px-4 py-2 rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
-              activeTab === 'vendors'
-                ? 'bg-slate-800 text-teal-300 font-semibold shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            Vendor Checklist ({currentPlan.vendorChecklist.length})
-          </button>
-          <button
-            onClick={() => setActiveTab('venues')}
-            className={`px-4 py-2 rounded-lg transition-colors whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
-              activeTab === 'venues'
-                ? 'bg-slate-800 text-teal-300 font-semibold shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <span>Venue Radar</span>
-            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-teal-500/20 text-teal-300 border border-teal-500/30">
-              Google Maps
-            </span>
-          </button>
-          <button
-            onClick={() => setActiveTab('accessibility')}
-            className={`px-4 py-2 rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
-              activeTab === 'accessibility'
-                ? 'bg-slate-800 text-teal-300 font-semibold shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            Accessibility & Sensory Suite
-          </button>
-        </div>
+        <TabList
+          tabs={mainTabs}
+          active={activeTab}
+          onChange={setActiveTab}
+          idPrefix="main"
+          label="Planning workspace"
+          className="border-b border-slate-800 flex items-center gap-1 overflow-x-auto pb-1 text-sm font-medium"
+          tabClassName={mainTabClass}
+        />
 
-        {/* TAB 1: AI Assistant Conversational Planner with Mic & Search Grounding */}
-        {activeTab === 'assistant' && (
-          <AiAssistantChat
-            currentPlan={currentPlan}
-            onOpenLiveVoice={() => setIsLiveVoiceOpen(true)}
-          />
-        )}
+        <TabPanel idPrefix="main" tabKey={activeTab} className="focus:outline-none">
+          <Suspense fallback={<PanelFallback />}>
+            {activeTab === 'assistant' && (
+              <AiAssistantChat
+                key={currentPlan.id}
+                currentPlan={currentPlan}
+                onOpenLiveVoice={() => setIsLiveVoiceOpen(true)}
+                onSendToInterpreterPrep={handleSendToInterpreterPrep}
+              />
+            )}
 
-        {/* TAB 2: Personalized Creative Ideas Generator */}
-        {activeTab === 'ideas' && (
-          <PersonalizedIdeasView
-            ideas={currentPlan.personalizedIdeas}
-            currentPlan={currentPlan}
-            onUpdateIdeas={(ideas) => setCurrentPlan({ ...currentPlan, personalizedIdeas: ideas })}
-          />
-        )}
+            {activeTab === 'ideas' && (
+              <PersonalizedIdeasView
+                ideas={currentPlan.personalizedIdeas}
+                currentPlan={currentPlan}
+                onUpdateIdeas={(ideas: EventPlan['personalizedIdeas']) => updatePlan({ personalizedIdeas: ideas })}
+              />
+            )}
 
-        {/* TAB 3: Automated Budget Planner */}
-        {activeTab === 'budget' && (
-          <BudgetPlanner
-            budgetItems={currentPlan.budgetAllocation}
-            totalBudget={currentPlan.totalBudget}
-            eventType={currentPlan.eventType}
-            onUpdateItems={(items) => setCurrentPlan({ ...currentPlan, budgetAllocation: items })}
-            onUpdateTotalBudget={(total) => setCurrentPlan({ ...currentPlan, totalBudget: total })}
-          />
-        )}
+            {activeTab === 'budget' && (
+              <BudgetPlanner
+                budgetItems={currentPlan.budgetAllocation}
+                totalBudget={currentPlan.totalBudget}
+                eventType={currentPlan.eventType}
+                onUpdateItems={(items: EventPlan['budgetAllocation']) => updatePlan({ budgetAllocation: items })}
+                onUpdateTotalBudget={(total: number) => updatePlan({ totalBudget: total })}
+              />
+            )}
 
-        {/* TAB 4: Dual-Horizon Timelines & Run-of-Show */}
-        {activeTab === 'timeline' && (
-          <TimelineManager
-            countdownPhases={currentPlan.countdownPhases}
-            milestones={currentPlan.timelineMilestones}
-            onUpdatePhases={(phases) => setCurrentPlan({ ...currentPlan, countdownPhases: phases })}
-            onUpdateMilestones={(milestones) => setCurrentPlan({ ...currentPlan, timelineMilestones: milestones })}
-          />
-        )}
+            {activeTab === 'timeline' && (
+              <TimelineManager
+                countdownPhases={currentPlan.countdownPhases}
+                milestones={currentPlan.timelineMilestones}
+                onUpdatePhases={(phases: EventPlan['countdownPhases']) => updatePlan({ countdownPhases: phases })}
+                onUpdateMilestones={(milestones: EventPlan['timelineMilestones']) => updatePlan({ timelineMilestones: milestones })}
+              />
+            )}
 
-        {/* TAB 5: Vendor Checklist & Procurement Manager */}
-        {activeTab === 'vendors' && (
-          <VendorChecklist
-            vendors={currentPlan.vendorChecklist}
-            onUpdateVendors={(vendors) => setCurrentPlan({ ...currentPlan, vendorChecklist: vendors })}
-          />
-        )}
+            {activeTab === 'vendors' && (
+              <VendorChecklist
+                vendors={currentPlan.vendorChecklist}
+                onUpdateVendors={(vendors: VendorItem[]) => updatePlan({ vendorChecklist: vendors })}
+              />
+            )}
 
-        {/* TAB 6: Venue Radar (Google Maps Grounded with Gemini 3.8 Flash) */}
-        {activeTab === 'venues' && (
-          <LocalVenueRadar
-            currentPlan={currentPlan}
-            onUpdatePlanVenue={handleUpdatePlanVenue}
-            onAddVendor={handleAddVendorFromRadar}
-          />
-        )}
+            {activeTab === 'venues' && (
+              <LocalVenueRadar
+                currentPlan={currentPlan}
+                onUpdatePlanVenue={(venueName: string) => updatePlan({ venueName })}
+                onAddVendor={(vendor: VendorItem) =>
+                  setCurrentPlan((prev) => ({ ...prev, vendorChecklist: [vendor, ...prev.vendorChecklist] }))
+                }
+              />
+            )}
 
-        {/* TAB 7: Accessibility & Sensory Suite */}
-        {activeTab === 'accessibility' && (
-          <div className="space-y-6">
-            {/* Accessibility Sub-Navigation */}
-            <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-lg p-1 text-xs">
-              <button
-                onClick={() => setAccessibilitySubTab('avatar')}
-                className={`px-3 py-1.5 font-medium rounded transition-colors cursor-pointer ${
-                  accessibilitySubTab === 'avatar'
-                    ? 'bg-slate-800 text-teal-300 font-semibold'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                ASL Avatar & Sign Recognition
-              </button>
-              <button
-                onClick={() => setAccessibilitySubTab('floorplan')}
-                className={`px-3 py-1.5 font-medium rounded transition-colors cursor-pointer ${
-                  accessibilitySubTab === 'floorplan'
-                    ? 'bg-slate-800 text-teal-300 font-semibold'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                Sightline Floorplan Raycaster
-              </button>
-              <button
-                onClick={() => setAccessibilitySubTab('sensory')}
-                className={`px-3 py-1.5 font-medium rounded transition-colors cursor-pointer ${
-                  accessibilitySubTab === 'sensory'
-                    ? 'bg-slate-800 text-teal-300 font-semibold'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                Sound-to-Light Dance Floor & Cues
-              </button>
-            </div>
-
-            {accessibilitySubTab === 'avatar' && <SignInterpreterEngine />}
-            {accessibilitySubTab === 'floorplan' && <FloorplanArchitect />}
-            {accessibilitySubTab === 'sensory' && <SensoryVisualConsole cues={currentPlan.sensoryAndVisualCues} />}
-          </div>
-        )}
+            {activeTab === 'accessibility' && (
+              <div className="space-y-6">
+                <TabList
+                  tabs={accessTabs}
+                  active={accessSubTab}
+                  onChange={setAccessSubTab}
+                  idPrefix="access"
+                  label="Accessibility tools"
+                  className="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-lg p-1 text-xs overflow-x-auto"
+                  tabClassName={subTabClass}
+                />
+                <TabPanel idPrefix="access" tabKey={accessSubTab} className="focus:outline-none">
+                  {accessSubTab === 'audit' && (
+                    <AccessReadinessAudit
+                      report={audit}
+                      onOpenFloorplan={() => setAccessSubTab('floorplan')}
+                      onOpenBudget={() => setActiveTab('budget')}
+                    />
+                  )}
+                  {accessSubTab === 'floorplan' && (
+                    <FloorplanArchitect
+                      tables={seatingLayout}
+                      onChangeTables={(tables: SightlineTable[]) => updatePlan({ seatingLayout: tables })}
+                    />
+                  )}
+                  {accessSubTab === 'sensory' && <SensoryVisualConsole cues={currentPlan.sensoryAndVisualCues} />}
+                  {accessSubTab === 'avatar' && (
+                    <SignInterpreterEngine prepText={interpreterPrepText} eventType={currentPlan.eventType} />
+                  )}
+                </TabPanel>
+              </div>
+            )}
+          </Suspense>
+        </TabPanel>
       </main>
 
-      {/* Gemini AI Event Blueprint / Plan Modal */}
       <GeminiBlueprintModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onApplyBlueprint={(newPlan) => {
           setCurrentPlan(newPlan);
-          setActiveTab('assistant');
+          setActiveTab('accessibility');
+          setAccessSubTab('audit');
         }}
       />
 
-      {/* Printable PDF Summary Report Modal */}
-      <PdfReportModal
-        isOpen={isPdfModalOpen}
-        onClose={() => setIsPdfModalOpen(false)}
-        plan={currentPlan}
-      />
+      <PdfReportModal isOpen={isPdfModalOpen} onClose={() => setIsPdfModalOpen(false)} plan={{ ...currentPlan, seatingLayout }} />
 
-      {/* Gemini 3.8 Live Voice Assistant Modal */}
-      <LiveVoiceAssistantModal
-        isOpen={isLiveVoiceOpen}
-        onClose={() => setIsLiveVoiceOpen(false)}
-        currentPlan={currentPlan}
-      />
+      <LiveVoiceAssistantModal isOpen={isLiveVoiceOpen} onClose={() => setIsLiveVoiceOpen(false)} currentPlan={currentPlan} />
 
-      {/* Footer */}
-      <footer className="border-t border-slate-900 bg-slate-950 px-6 py-8 text-xs text-slate-500 mt-16">
+      <footer className="border-t border-slate-900 bg-slate-950 px-6 py-8 text-xs text-slate-400 mt-16">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-slate-300">ClaroCues</span>
-            <span aria-hidden="true">·</span>
-            <span>GenAI Event Planning Platform</span>
-            <span aria-hidden="true">·</span>
-            <span>Weddings, Birthdays & Community Gatherings</span>
-          </div>
           <div>
-            Powered by Gemini 3.8 Flash, Gemini 3.8 Live, Gemini 3.5 Transcribe & Google Maps Grounding.
+            <span className="font-semibold text-slate-300">ClaroCues</span> · Event planning built around Deaf, DeafBlind and
+            Hard-of-Hearing guests
           </div>
+          <div>AI drafts are planning aids. Always confirm access details with qualified interpreters and captioners.</div>
         </div>
       </footer>
     </div>
