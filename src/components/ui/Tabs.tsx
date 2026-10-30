@@ -1,8 +1,8 @@
-import React, { useRef } from 'react';
+import { useRef, type KeyboardEvent, type ReactNode } from 'react';
 
 export interface TabDef<K extends string> {
   key: K;
-  label: React.ReactNode;
+  label: ReactNode;
 }
 
 interface TabListProps<K extends string> {
@@ -20,10 +20,18 @@ export const tabId = (prefix: string, key: string) => `${prefix}-tab-${key}`;
 export const panelId = (prefix: string, key: string) => `${prefix}-panel-${key}`;
 
 /** WAI-ARIA tablist with roving tabindex and Arrow/Home/End keyboard navigation. */
-export function TabList<K extends string>({ tabs, active, onChange, idPrefix, label, className, tabClassName }: TabListProps<K>) {
+export function TabList<K extends string>({
+  tabs,
+  active,
+  onChange,
+  idPrefix,
+  label,
+  className,
+  tabClassName,
+}: TabListProps<K>) {
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
 
-  const onKeyDown = (e: React.KeyboardEvent, index: number) => {
+  const onKeyDown = (e: KeyboardEvent, index: number) => {
     let next = -1;
     if (e.key === 'ArrowRight') next = (index + 1) % tabs.length;
     else if (e.key === 'ArrowLeft') next = (index - 1 + tabs.length) % tabs.length;
@@ -62,13 +70,24 @@ export function TabList<K extends string>({ tabs, active, onChange, idPrefix, la
   );
 }
 
-export const TabPanel: React.FC<{ idPrefix: string; tabKey: string; children: React.ReactNode; className?: string }> = ({
-  idPrefix,
-  tabKey,
-  children,
-  className,
-}) => (
-  <div role="tabpanel" id={panelId(idPrefix, tabKey)} aria-labelledby={tabId(idPrefix, tabKey)} tabIndex={0} className={className}>
+interface TabPanelProps {
+  idPrefix: string;
+  tabKey: string;
+  children: ReactNode;
+  className?: string;
+  /** Keeps an inactive panel mounted (preserving its state) but hidden from everyone. */
+  hidden?: boolean;
+}
+
+export const TabPanel = ({ idPrefix, tabKey, children, className = 'focus:outline-none', hidden }: TabPanelProps) => (
+  <div
+    role="tabpanel"
+    id={panelId(idPrefix, tabKey)}
+    aria-labelledby={tabId(idPrefix, tabKey)}
+    tabIndex={0}
+    hidden={hidden}
+    className={className}
+  >
     {children}
   </div>
 );

@@ -1,8 +1,7 @@
-import React from 'react';
 import type { ResponseSource } from '../../shared/api';
 
 /** Labels where content came from, so offline reference content is never mistaken for live AI output. */
-export const SourceBadge: React.FC<{ source: ResponseSource | 'sample' | undefined }> = ({ source }) => {
+export const SourceBadge = ({ source }: { source: ResponseSource | 'sample' | undefined }) => {
   if (!source) return null;
   if (source === 'gemini') {
     return (
@@ -19,13 +18,21 @@ export const SourceBadge: React.FC<{ source: ResponseSource | 'sample' | undefin
 };
 
 /** Inline error/alert message announced to assistive tech. */
-export const ErrorNotice: React.FC<{ message: string | null; onDismiss?: () => void }> = ({ message, onDismiss }) => {
+export const ErrorNotice = ({ message, onDismiss }: { message: string | null; onDismiss?: () => void }) => {
   if (!message) return null;
   return (
-    <div role="alert" className="flex items-start justify-between gap-3 bg-rose-500/10 border border-rose-500/40 rounded-lg p-3 text-xs text-rose-200">
+    <div
+      role="alert"
+      className="flex items-start justify-between gap-3 bg-rose-500/10 border border-rose-500/40 rounded-lg p-3 text-xs text-rose-200"
+    >
       <span>{message}</span>
       {onDismiss && (
-        <button type="button" onClick={onDismiss} className="text-rose-300 hover:text-white cursor-pointer" aria-label="Dismiss error">
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="text-rose-300 hover:text-white cursor-pointer"
+          aria-label="Dismiss error"
+        >
           <span aria-hidden="true">✕</span>
         </button>
       )}

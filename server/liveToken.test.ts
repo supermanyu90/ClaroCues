@@ -5,14 +5,26 @@ import { loadConfig } from './config';
 import { buildLiveConnectConfig, type LiveTokenIssuer } from './liveToken';
 
 const config = { ...loadConfig({}), rateLimitPerMinute: 1000 };
-const context = { title: 'Elena & Marcus', eventType: 'wedding', guestCount: 130, totalBudget: 28500, venueName: 'Atrium' };
+const context = {
+  title: 'Elena & Marcus',
+  eventType: 'wedding',
+  guestCount: 130,
+  totalBudget: 28500,
+  venueName: 'Atrium',
+};
 
 function fakeIssuer(): LiveTokenIssuer & { issue: ReturnType<typeof vi.fn> } {
-  return { issue: vi.fn(async () => ({ token: 'auth_tokens/abc', model: 'live-model', expiresAt: '2026-01-01T00:30:00Z' })) };
+  return {
+    issue: vi.fn(async () => ({ token: 'auth_tokens/abc', model: 'live-model', expiresAt: '2026-01-01T00:30:00Z' })),
+  };
 }
 
 const post = (app: ReturnType<typeof createApp>, body: unknown, origin = 'http://127.0.0.1') =>
-  request(app).post('/api/live-token').set('Host', '127.0.0.1').set('Origin', origin).send(body as object);
+  request(app)
+    .post('/api/live-token')
+    .set('Host', '127.0.0.1')
+    .set('Origin', origin)
+    .send(body as object);
 
 describe('POST /api/live-token', () => {
   it('issues a token for same-origin requests and never caches it', async () => {
@@ -33,7 +45,11 @@ describe('POST /api/live-token', () => {
   });
 
   it('allows explicitly configured origins', async () => {
-    const app = createApp({ config: { ...config, allowedOrigins: ['https://clarocues.example'] }, ai: null, liveTokens: fakeIssuer() });
+    const app = createApp({
+      config: { ...config, allowedOrigins: ['https://clarocues.example'] },
+      ai: null,
+      liveTokens: fakeIssuer(),
+    });
     expect((await post(app, { context }, 'https://clarocues.example')).status).toBe(200);
   });
 

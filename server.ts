@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url';
 import { createGeminiClient, createGeminiGateway } from './server/ai.js';
 import { createApp } from './server/app.js';
 import { loadConfig } from './server/config.js';
-import { createLiveTokenIssuer } from './server/liveToken.js';
+import { createAuthTokenClient, createLiveTokenIssuer } from './server/liveToken.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -19,7 +19,7 @@ async function startServer() {
   const app = createApp({
     config,
     ai: client ? createGeminiGateway(client) : null,
-    liveTokens: createLiveTokenIssuer(config.geminiApiKey, config.models.live),
+    liveTokens: createLiveTokenIssuer(createAuthTokenClient(config.geminiApiKey), config.models.live),
   });
   const server = http.createServer(app);
 
@@ -46,7 +46,7 @@ async function startServer() {
   }
 
   server.listen(config.port, '0.0.0.0', () => {
-    console.log(`ClaroCues server listening on http://localhost:${config.port}`);
+    console.info(`ClaroCues server listening on http://localhost:${config.port}`);
   });
 }
 

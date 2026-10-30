@@ -1,11 +1,10 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 
 export type FloorplanFilterType = 'all' | 'priority' | 'standard' | 'obstructed';
 
 interface FloorplanLegendProps {
   priorityCount: number;
   standardCount: number;
-  clearSightlinesCount: number;
   obstructedCount: number;
   totalSeats: number;
   dhhSeats: number;
@@ -15,10 +14,9 @@ interface FloorplanLegendProps {
   selectedTableCoords?: { x: number; y: number };
 }
 
-export const FloorplanLegend: React.FC<FloorplanLegendProps> = ({
+export const FloorplanLegend = ({
   priorityCount,
   standardCount,
-  clearSightlinesCount,
   obstructedCount,
   totalSeats,
   dhhSeats,
@@ -26,7 +24,7 @@ export const FloorplanLegend: React.FC<FloorplanLegendProps> = ({
   onFilterChange,
   selectedTableName,
   selectedTableCoords,
-}) => {
+}: FloorplanLegendProps) => {
   const [isExpanded, setIsExpanded] = useState<boolean>(true);
 
   return (
@@ -35,12 +33,8 @@ export const FloorplanLegend: React.FC<FloorplanLegendProps> = ({
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800/80 pb-2.5">
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-teal-400 animate-pulse" />
-          <span className="text-xs font-bold text-white uppercase tracking-wider">
-            Seating & Sightline Legend
-          </span>
-          <span className="text-[11px] text-slate-400 font-mono">
-            DeafSpace Architectural Standards
-          </span>
+          <span className="text-xs font-bold text-white uppercase tracking-wider">Seating & Sightline Legend</span>
+          <span className="text-[11px] text-slate-400 font-mono">DeafSpace Architectural Standards</span>
         </div>
 
         {/* Filter Pills */}
@@ -195,7 +189,9 @@ export const FloorplanLegend: React.FC<FloorplanLegendProps> = ({
               <div className="p-2 rounded bg-slate-950/80 border border-slate-800/80 text-[11px] text-slate-400 space-y-1 mt-2">
                 <div className="text-slate-300 font-medium">DeafSpace Centerpiece Rule:</div>
                 <p className="leading-relaxed">
-                  Centerpieces on all guest tables must remain capped at <span className="text-teal-400 font-semibold">&le;9.5"</span> to prevent blocking signing sightlines across tables.
+                  Centerpieces on all guest tables must remain capped at{' '}
+                  <span className="text-teal-400 font-semibold">&le;9.5"</span> to prevent blocking signing sightlines
+                  across tables.
                 </p>
               </div>
             </div>

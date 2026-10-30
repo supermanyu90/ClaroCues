@@ -1,12 +1,6 @@
-import { BudgetItem, EventCategory } from '../types';
+import { type BudgetItem, type EventCategory } from '../types';
 
-export type StandardCategoryKey =
-  | 'venue'
-  | 'catering'
-  | 'photography'
-  | 'entertainment'
-  | 'decor'
-  | 'accessibility';
+export type StandardCategoryKey = 'venue' | 'catering' | 'photography' | 'entertainment' | 'decor' | 'accessibility';
 
 export interface CategoryBenchmark {
   key: StandardCategoryKey;
@@ -214,7 +208,10 @@ export const INDUSTRY_BENCHMARKS: Record<EventCategory, Record<StandardCategoryK
 // Ordered: the first matching rule wins, so accessibility is checked before generic AV/sound.
 // Whole-word matching avoids false hits such as "bar" in "barrier-free" or "hall" in "shall".
 const CATEGORY_RULES: [StandardCategoryKey, RegExp][] = [
-  ['accessibility', /\b(asl|interpreters?|interpreting|cart|captions?|captioning|steno|hearing loops?|induction|dhh|sightlines?|tactile|accessibility)\b/],
+  [
+    'accessibility',
+    /\b(asl|interpreters?|interpreting|cart|captions?|captioning|steno|hearing loops?|induction|dhh|sightlines?|tactile|accessibility)\b/,
+  ],
   ['catering', /\b(cater\w*|food|beverages?|bar|cocktails?|mocktails?|cake|dinner|snacks?|buffet|dining|tasting)\b/],
   ['venue', /\b(venue|pavilion|hall|loft|terrace|space rental|facilit(y|ies)|staging|site)\b/],
   ['photography', /\b(photo\w*|video\w*|cinema\w*|polaroids?|camera)\b/],
@@ -250,9 +247,7 @@ export function checkAccessibilityFunding(
   eventType: EventCategory = 'wedding'
 ): AccessibilityFundingGap | null {
   if (totalBudget <= 0) return null;
-  const allocatedAmount = items
-    .filter((i) => classifyCategory(i.category) === 'accessibility')
-    .reduce((sum, i) => sum + i.amount, 0);
+  const allocatedAmount = accessibilitySpend(items);
   const allocatedPercent = Math.round((allocatedAmount / totalBudget) * 1000) / 10;
   const { industryAveragePercent } = (INDUSTRY_BENCHMARKS[eventType] || INDUSTRY_BENCHMARKS.wedding).accessibility;
   if (allocatedPercent >= industryAveragePercent) return null;
@@ -278,10 +273,7 @@ export function analyzeBudgetAgainstBenchmarks(
   const benchmarksForType = INDUSTRY_BENCHMARKS[eventType] || INDUSTRY_BENCHMARKS.wedding;
 
   // Group items and amounts by category key
-  const grouped: Record<
-    StandardCategoryKey,
-    { totalAmount: number; itemIds: string[]; sampleCategoryName: string }
-  > = {
+  const grouped: Record<StandardCategoryKey, { totalAmount: number; itemIds: string[]; sampleCategoryName: string }> = {
     venue: { totalAmount: 0, itemIds: [], sampleCategoryName: '' },
     catering: { totalAmount: 0, itemIds: [], sampleCategoryName: '' },
     photography: { totalAmount: 0, itemIds: [], sampleCategoryName: '' },
@@ -366,7 +358,7 @@ export function checkSingleItemWarning(
   if (totalBudget <= 0) return { isWarning: false, allocatedPercent: 0 };
 
   const key = classifyCategory(item.category);
-  const allocatedPercent = Math.round(((item.amount / totalBudget) * 100) * 10) / 10;
+  const allocatedPercent = Math.round((item.amount / totalBudget) * 100 * 10) / 10;
 
   if (!key) return { isWarning: false, allocatedPercent };
 
@@ -376,3 +368,60 @@ export function checkSingleItemWarning(
   const isWarning = allocatedPercent > benchmark.warningThresholdPercent;
   return { isWarning, benchmark, allocatedPercent };
 }
+
+export const sumAmounts = (items: BudgetItem[]): number => items.reduce((sum, item) => sum + item.amount, 0);
+
+/** Total spend on interpreters, captioning and other access services. */
+export const accessibilitySpend = (items: BudgetItem[]): number =>
+  sumAmounts(items.filter((item) => classifyCategory(item.category) === 'accessibility'));
+
+export interface CategorySummary {
+  key: StandardCategoryKey;
+  displayName: string;
+  description: string;
+  spent: number;
+  percent: number;
+  averagePercent: number;
+  warningThresholdPercent: number;
+  isOver: boolean;
+}
+
+/** Spend per benchmark category, as a share of the total, alongside the industry figures. */
+export function summarizeCategories(
+  items: BudgetItem[],
+  totalBudget: number,
+  eventType: EventCategory
+): CategorySummary[] {
+  const benchmarks = INDUSTRY_BENCHMARKS[eventType] ?? INDUSTRY_BENCHMARKS.wedding;
+  return (Object.keys(benchmarks) as StandardCategoryKey[]).map((key) => {
+    const benchmark = benchmarks[key];
+    const spent = sumAmounts(items.filter((item) => classifyCategory(item.category) === key));
+    const percent = totalBudget > 0 ? Math.round((spent / totalBudget) * 1000) / 10 : 0;
+    return {
+      key,
+      displayName: benchmark.displayName,
+      description: benchmark.description,
+      spent,
+      percent,
+      averagePercent: benchmark.industryAveragePercent,
+      warningThresholdPercent: benchmark.warningThresholdPercent,
+      isOver: percent > benchmark.warningThresholdPercent,
+    };
+  });
+}
+
+/** Scales every line item in an over-allocated category down proportionally to the warning threshold. */
+export function capCategoryToThreshold(items: BudgetItem[], warning: BudgetWarning): BudgetItem[] {
+  if (warning.allocatedAmount <= 0) return items;
+  const scale = warning.recommendedMaxAmount / warning.allocatedAmount;
+  const affected = new Set(warning.affectedItemIds);
+  return items.map((item) => (affected.has(item.id) ? { ...item, amount: Math.round(item.amount * scale) } : item));
+}
+
+const STATUS_CYCLE: Record<BudgetItem['status'], BudgetItem['status']> = {
+  Estimated: 'Booked',
+  Booked: 'Paid',
+  Paid: 'Estimated',
+};
+
+export const nextBudgetStatus = (status: BudgetItem['status']) => STATUS_CYCLE[status];

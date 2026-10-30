@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { CountdownPhase, TimelineMilestone } from '../types';
+import { useState, type FormEvent } from 'react';
+import { type CountdownPhase, type TimelineMilestone } from '../types';
+import { createId } from '../utils/id';
 
 interface TimelineManagerProps {
   countdownPhases: CountdownPhase[];
@@ -8,12 +9,12 @@ interface TimelineManagerProps {
   onUpdateMilestones: (milestones: TimelineMilestone[]) => void;
 }
 
-export const TimelineManager: React.FC<TimelineManagerProps> = ({
+export const TimelineManager = ({
   countdownPhases,
   milestones,
   onUpdatePhases,
   onUpdateMilestones,
-}) => {
+}: TimelineManagerProps) => {
   const [activeMode, setActiveMode] = useState<'countdown' | 'runOfShow'>('countdown');
   const [isAddingMilestone, setIsAddingMilestone] = useState<boolean>(false);
   const [isAddingTask, setIsAddingTask] = useState<string | null>(null);
@@ -38,9 +39,7 @@ export const TimelineManager: React.FC<TimelineManagerProps> = ({
       if (phase.id !== phaseId) return phase;
       return {
         ...phase,
-        tasks: phase.tasks.map((task) =>
-          task.id === taskId ? { ...task, completed: !task.completed } : task
-        ),
+        tasks: phase.tasks.map((task) => (task.id === taskId ? { ...task, completed: !task.completed } : task)),
       };
     });
     onUpdatePhases(next);
@@ -55,7 +54,7 @@ export const TimelineManager: React.FC<TimelineManagerProps> = ({
         tasks: [
           ...phase.tasks,
           {
-            id: `task-${Date.now()}`,
+            id: createId('task'),
             title: newTaskTitle.trim(),
             category: newTaskCategory,
             completed: false,
@@ -68,12 +67,12 @@ export const TimelineManager: React.FC<TimelineManagerProps> = ({
     setIsAddingTask(null);
   };
 
-  const handleAddMilestone = (e: React.FormEvent) => {
+  const handleAddMilestone = (e: FormEvent) => {
     e.preventDefault();
     if (!newTitle.trim()) return;
 
     const newM: TimelineMilestone = {
-      id: `t-${Date.now()}`,
+      id: createId('t'),
       time: newTime,
       title: newTitle.trim(),
       details: newDetails.trim() || 'Scheduled timeline item',
@@ -104,11 +103,10 @@ export const TimelineManager: React.FC<TimelineManagerProps> = ({
             <span aria-hidden="true">·</span>
             <span>Day-Of Run-of-Show</span>
           </div>
-          <h2 className="text-xl font-bold text-white tracking-tight">
-            Event Timelines & Run-of-Show Manager
-          </h2>
+          <h2 className="text-xl font-bold text-white tracking-tight">Event Timelines & Run-of-Show Manager</h2>
           <p className="text-sm text-slate-300 leading-relaxed">
-            Manage both macro horizons: track multi-month milestone checklists leading up to the celebration, and orchestrate the minute-by-minute day-of schedule with visual cue transitions and team interpreter rotations.
+            Manage both macro horizons: track multi-month milestone checklists leading up to the celebration, and
+            orchestrate the minute-by-minute day-of schedule with visual cue transitions and team interpreter rotations.
           </p>
         </div>
 
@@ -161,17 +159,16 @@ export const TimelineManager: React.FC<TimelineManagerProps> = ({
             {countdownPhases.map((phase) => {
               const phaseCompleted = phase.tasks.filter((t) => t.completed).length;
               return (
-                <div
-                  key={phase.id}
-                  className="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-4"
-                >
+                <div key={phase.id} className="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-4">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-mono font-bold text-teal-400 uppercase tracking-wider">
                           {phase.timeframe}
                         </span>
-                        <span aria-hidden="true" className="text-slate-600">·</span>
+                        <span aria-hidden="true" className="text-slate-600">
+                          ·
+                        </span>
                         <span className="text-xs text-slate-400">
                           {phaseCompleted}/{phase.tasks.length} Completed
                         </span>
@@ -306,7 +303,9 @@ export const TimelineManager: React.FC<TimelineManagerProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
                 <div className="space-y-1">
-                  <label htmlFor="milestone-time-24h" className="text-slate-300">Time (24h)</label>
+                  <label htmlFor="milestone-time-24h" className="text-slate-300">
+                    Time (24h)
+                  </label>
                   <input
                     id="milestone-time-24h"
                     type="text"
@@ -319,7 +318,9 @@ export const TimelineManager: React.FC<TimelineManagerProps> = ({
                 </div>
 
                 <div className="space-y-1">
-                  <label htmlFor="milestone-milestone-title" className="text-slate-300">Milestone Title</label>
+                  <label htmlFor="milestone-milestone-title" className="text-slate-300">
+                    Milestone Title
+                  </label>
                   <input
                     id="milestone-milestone-title"
                     type="text"
@@ -332,7 +333,9 @@ export const TimelineManager: React.FC<TimelineManagerProps> = ({
                 </div>
 
                 <div className="space-y-1">
-                  <label htmlFor="milestone-cue-type" className="text-slate-300">Cue Type</label>
+                  <label htmlFor="milestone-cue-type" className="text-slate-300">
+                    Cue Type
+                  </label>
                   <select
                     id="milestone-cue-type"
                     value={newCueType}
@@ -349,7 +352,9 @@ export const TimelineManager: React.FC<TimelineManagerProps> = ({
               </div>
 
               <div className="space-y-1 text-xs">
-                <label htmlFor="milestone-execution-details-technical-notes" className="text-slate-300">Execution Details & Technical Notes</label>
+                <label htmlFor="milestone-execution-details-technical-notes" className="text-slate-300">
+                  Execution Details & Technical Notes
+                </label>
                 <input
                   id="milestone-execution-details-technical-notes"
                   type="text"
@@ -380,21 +385,19 @@ export const TimelineManager: React.FC<TimelineManagerProps> = ({
                     item.cueType === 'interpreter'
                       ? 'border-emerald-400'
                       : item.cueType === 'visual'
-                      ? 'border-amber-400'
-                      : item.cueType === 'haptic'
-                      ? 'border-orange-400'
-                      : item.cueType === 'caption'
-                      ? 'border-sky-400'
-                      : 'border-slate-500'
+                        ? 'border-amber-400'
+                        : item.cueType === 'haptic'
+                          ? 'border-orange-400'
+                          : item.cueType === 'caption'
+                            ? 'border-sky-400'
+                            : 'border-slate-500'
                   }`}
                 />
 
                 <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 transition-all hover:border-slate-700 space-y-2">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-3">
-                      <span className="font-mono text-sm font-bold text-teal-400 tabular-nums">
-                        {item.time}
-                      </span>
+                      <span className="font-mono text-sm font-bold text-teal-400 tabular-nums">{item.time}</span>
                       <h3 className="text-sm font-semibold text-white">{item.title}</h3>
                     </div>
 

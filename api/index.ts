@@ -3,7 +3,7 @@
 import { createGeminiClient, createGeminiGateway } from '../server/ai.js';
 import { createApp } from '../server/app.js';
 import { loadConfig } from '../server/config.js';
-import { createLiveTokenIssuer } from '../server/liveToken.js';
+import { createAuthTokenClient, createLiveTokenIssuer } from '../server/liveToken.js';
 
 const config = loadConfig();
 const client = createGeminiClient(config.geminiApiKey);
@@ -11,5 +11,5 @@ const client = createGeminiClient(config.geminiApiKey);
 export default createApp({
   config,
   ai: client ? createGeminiGateway(client) : null,
-  liveTokens: createLiveTokenIssuer(config.geminiApiKey, config.models.live),
+  liveTokens: createLiveTokenIssuer(createAuthTokenClient(config.geminiApiKey), config.models.live),
 });

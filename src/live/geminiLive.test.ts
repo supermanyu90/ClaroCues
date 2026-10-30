@@ -23,7 +23,10 @@ describe('toLiveEvents', () => {
   });
 
   it('reports interruptions and turn boundaries', () => {
-    expect(toLiveEvents(msg({ interrupted: true, turnComplete: true }))).toEqual([{ type: 'interrupted' }, { type: 'turnComplete' }]);
+    expect(toLiveEvents(msg({ interrupted: true, turnComplete: true }))).toEqual([
+      { type: 'interrupted' },
+      { type: 'turnComplete' },
+    ]);
   });
 
   it('ignores messages without server content (setup, tool calls)', () => {

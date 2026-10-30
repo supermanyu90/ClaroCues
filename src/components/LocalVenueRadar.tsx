@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
-import { EventPlan, MapsPlace, VendorItem } from '../types';
+import { useState } from 'react';
+import { type EventPlan, type MapsPlace, type VendorItem } from '../types';
 import type { ResponseSource } from '../shared/api';
-import { errorMessage, postJson, safeExternalUrl } from '../utils/api';
+import { searchVenues } from '../services/apiClient';
+import { errorMessage, safeExternalUrl } from '../utils/api';
 import { ErrorNotice, SourceBadge } from './ui/SourceBadge';
+import { createId } from '../utils/id';
 
 interface LocalVenueRadarProps {
   currentPlan: EventPlan;
@@ -10,11 +12,7 @@ interface LocalVenueRadarProps {
   onAddVendor?: (vendor: VendorItem) => void;
 }
 
-export const LocalVenueRadar: React.FC<LocalVenueRadarProps> = ({
-  currentPlan,
-  onUpdatePlanVenue,
-  onAddVendor,
-}) => {
+export const LocalVenueRadar = ({ currentPlan, onUpdatePlanVenue, onAddVendor }: LocalVenueRadarProps) => {
   const [searchQuery, setSearchQuery] = useState<string>(
     `${currentPlan.venueName || 'Accessible event venues'} suitable for ${currentPlan.guestCount} guests with barrier-free access`
   );
@@ -34,9 +32,30 @@ export const LocalVenueRadar: React.FC<LocalVenueRadarProps> = ({
       `Until you search, the cards above are examples of the access features worth checking: step-free routes, ` +
       `even non-glare lighting for signing, hearing loops and low reverberation.`,
     places: [
-      { title: 'Example: daylight pavilion', uri: '', reviewSnippets: ['Even, non-glare lighting so signing is easy to read', 'Single level with step-free terrace access'] },
-      { title: 'Example: heritage hall', uri: '', reviewSnippets: ['Working induction hearing loop throughout', 'Stage ramp and front lighting for the interpreter'] },
-      { title: 'Example: modern loft', uri: '', reviewSnippets: ['Acoustic baffling that cuts reverberation', 'Wide lifts and clear sightlines from every table'] },
+      {
+        title: 'Example: daylight pavilion',
+        uri: '',
+        reviewSnippets: [
+          'Even, non-glare lighting so signing is easy to read',
+          'Single level with step-free terrace access',
+        ],
+      },
+      {
+        title: 'Example: heritage hall',
+        uri: '',
+        reviewSnippets: [
+          'Working induction hearing loop throughout',
+          'Stage ramp and front lighting for the interpreter',
+        ],
+      },
+      {
+        title: 'Example: modern loft',
+        uri: '',
+        reviewSnippets: [
+          'Acoustic baffling that cuts reverberation',
+          'Wide lifts and clear sightlines from every table',
+        ],
+      },
     ],
   });
 
@@ -73,10 +92,7 @@ export const LocalVenueRadar: React.FC<LocalVenueRadarProps> = ({
     setError(null);
     try {
       const fullQuery = cityLocation ? `${q} in ${cityLocation}` : q;
-      const data = await postJson<{ content: string; places: MapsPlace[]; source: ResponseSource }>(
-        '/api/gemini/maps-search',
-        { query: fullQuery, location: geoCoordinates || undefined }
-      );
+      const data = await searchVenues(fullQuery, geoCoordinates ?? undefined);
       setResults({ content: data.content || '', places: data.places || [], source: data.source });
     } catch (err) {
       setError(errorMessage(err));
@@ -91,7 +107,7 @@ export const LocalVenueRadar: React.FC<LocalVenueRadarProps> = ({
     }
     if (onAddVendor) {
       const newVendor: VendorItem = {
-        id: `v-map-${Date.now()}`,
+        id: createId('v-map'),
         category: 'Venue & Facilities',
         name: place.title,
         contact: 'Manager on Duty',
@@ -101,7 +117,7 @@ export const LocalVenueRadar: React.FC<LocalVenueRadarProps> = ({
         keyQuestions: [
           'Verify zero-threshold stage access ramp and wide radial seating clearance',
           'Confirm pre-installed audio induction loop or RF assistive listening system',
-          'Review acoustic wall baffle absorption ratings to prevent echo'
+          'Review acoustic wall baffle absorption ratings to prevent echo',
         ],
         deadline: '2 Weeks Out',
         notes: place.uri ? `Found via Google Maps: ${place.uri}` : 'Added from sample listings; verify details',
@@ -113,11 +129,26 @@ export const LocalVenueRadar: React.FC<LocalVenueRadarProps> = ({
   };
 
   const presetFilters = [
-    { label: '🏛️ Barrier-Free Banquet Halls', query: `Accessible banquet halls and ballrooms with step-free entry for ${currentPlan.guestCount} guests` },
-    { label: '🌿 Natural Light Garden & Lofts', query: `High natural daylight venues and lofts with open sightlines for ${currentPlan.eventType}` },
-    { label: '🎧 Induction Loop Venues', query: `Event venues with pre-wired hearing loops and low acoustic reverberation` },
-    { label: '🍷 Accessible Culinary & Caterers', query: `High-end dietary-inclusive catering and tasting studios for ${currentPlan.eventType}` },
-    { label: '💡 Frequency-Reactive Lighting', query: `Event lighting production vendors with sound-to-light LED dance floor systems` },
+    {
+      label: '🏛️ Barrier-Free Banquet Halls',
+      query: `Accessible banquet halls and ballrooms with step-free entry for ${currentPlan.guestCount} guests`,
+    },
+    {
+      label: '🌿 Natural Light Garden & Lofts',
+      query: `High natural daylight venues and lofts with open sightlines for ${currentPlan.eventType}`,
+    },
+    {
+      label: '🎧 Induction Loop Venues',
+      query: `Event venues with pre-wired hearing loops and low acoustic reverberation`,
+    },
+    {
+      label: '🍷 Accessible Culinary & Caterers',
+      query: `High-end dietary-inclusive catering and tasting studios for ${currentPlan.eventType}`,
+    },
+    {
+      label: '💡 Frequency-Reactive Lighting',
+      query: `Event lighting production vendors with sound-to-light LED dance floor systems`,
+    },
   ];
 
   return (
@@ -132,11 +163,10 @@ export const LocalVenueRadar: React.FC<LocalVenueRadarProps> = ({
             <span aria-hidden="true">·</span>
             <span>Live Geospatial Retrieval</span>
           </div>
-          <h2 className="text-xl font-bold text-white tracking-tight">
-            Venue & Vendor Radar (Google Maps Grounded)
-          </h2>
+          <h2 className="text-xl font-bold text-white tracking-tight">Venue & Vendor Radar (Google Maps Grounded)</h2>
           <p className="text-sm text-slate-300 leading-relaxed">
-            Find venues and vendors with Gemini grounded in Google Maps, then check each one for step-free access, lighting suited to signing, hearing loops and acoustics.
+            Find venues and vendors with Gemini grounded in Google Maps, then check each one for step-free access,
+            lighting suited to signing, hearing loops and acoustics.
           </p>
         </div>
 
@@ -268,9 +298,7 @@ export const LocalVenueRadar: React.FC<LocalVenueRadarProps> = ({
                     >
                       <div className="space-y-2.5">
                         <div className="flex items-start justify-between gap-2">
-                          <h4 className="font-semibold text-white text-base leading-snug">
-                            {place.title}
-                          </h4>
+                          <h4 className="font-semibold text-white text-base leading-snug">{place.title}</h4>
                           {results.source === 'gemini' && (
                             <span className="shrink-0 text-[11px] font-mono px-2 py-0.5 rounded bg-teal-500/10 text-teal-300 border border-teal-500/30">
                               Google Maps

@@ -44,19 +44,20 @@
 
 ClaroCues applies the 5 DeafSpace principles pioneered at Gallaudet University:
 
-| Principle | ClaroCues Implementation |
-|---|---|
-| **Sensory Reach** | Raycasting sightline algorithms ensure unobstructed 360° visual perimeter between speakers, interpreters, and guests. |
-| **Space & Proximity** | Crescent arc seating and 60″ ADA turning radiuses accommodate natural signing distance and companion mobility devices. |
-| **Light & Color** | Venue checks verify indirect, diffused ambient lighting that prevents eye fatigue and avoids backlighting interpreters. |
-| **Acoustics & Vibration** | Sensory floor staging leverages tactile bass resonance and wooden subflooring for shared musical rhythm. |
-| **Mobility & Flow** | Wide corridor clearances prevent signing interruptions while attendees walk and converse simultaneously. |
+| Principle                 | ClaroCues Implementation                                                                                                |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| **Sensory Reach**         | Raycasting sightline algorithms ensure unobstructed 360° visual perimeter between speakers, interpreters, and guests.   |
+| **Space & Proximity**     | Crescent arc seating and 60″ ADA turning radiuses accommodate natural signing distance and companion mobility devices.  |
+| **Light & Color**         | Venue checks verify indirect, diffused ambient lighting that prevents eye fatigue and avoids backlighting interpreters. |
+| **Acoustics & Vibration** | Sensory floor staging leverages tactile bass resonance and wooden subflooring for shared musical rhythm.                |
+| **Mobility & Flow**       | Wide corridor clearances prevent signing interruptions while attendees walk and converse simultaneously.                |
 
 ---
 
 ## 🛠️ Technology Stack
 
 ### Frontend
+
 - **Framework**: React 19 + TypeScript
 - **Styling**: Tailwind CSS v4 (`@import "tailwindcss";`)
 - **Icons**: Lucide React
@@ -65,6 +66,7 @@ ClaroCues applies the 5 DeafSpace principles pioneered at Gallaudet University:
 - **Bundler**: Vite 8
 
 ### Backend & AI
+
 - **Server**: Express 4 + Node.js (via `tsx`)
 - **Real-Time Voice**: Gemini Live from the browser via ephemeral tokens
 - **AI SDK**: `@google/genai` TypeScript SDK
@@ -78,46 +80,47 @@ ClaroCues applies the 5 DeafSpace principles pioneered at Gallaudet University:
 ## 📂 Project Structure
 
 ```
-├── server.ts                     # Bootstrap: config, Gemini client, HTTP server, Vite/static
-├── api/index.ts                  # Vercel serverless entry for the same Express app
+├── server.ts                  # Bootstrap: config, Gemini clients, HTTP server, Vite/static
+├── api/index.ts               # Vercel serverless entry for the same Express app
 ├── server/
-│   ├── app.ts                    # Express routes, Helmet/CSP, rate limiting, error handling
-│   ├── ai.ts                     # AiGateway interface + Gemini implementation (swappable in tests)
-│   ├── liveToken.ts              # Mints locked, single-use Gemini Live ephemeral tokens
-│   ├── validation.ts             # zod request schemas
-│   ├── prompts.ts                # Prompt builders (user input passed as fenced data, never as instructions)
-│   ├── fallbacks.ts              # Labelled reference content when Gemini is unavailable
-│   └── config.ts                 # Environment configuration
-├── src/
-│   ├── App.tsx                   # Layout, plan state, lazily loaded tab panels
-│   ├── shared/                   # Types shared by client and server (API + live protocol)
-│   ├── components/
-│   │   ├── ui/                   # Accessible Modal, Tabs, SourceBadge/ErrorNotice
-│   │   ├── AccessReadinessAudit.tsx
-│   │   ├── FloorplanArchitect.tsx     # Drag *or* arrow-key table placement with live sightline analysis
-│   │   ├── LiveVoiceAssistantModal.tsx
-│   │   └── …                     # Budget, timeline, vendors, venues, ideas, sensory console, ASL prep
-│   ├── live/geminiLive.ts        # Browser ↔ Gemini Live session + message mapping
-│   ├── audio/pcm-capture.worklet.js   # Mic capture off the main thread
-│   └── utils/
-│       ├── accessibilityAudit.ts # Readiness scoring
-│       ├── sightline.ts          # DeafSpace sightline geometry
-│       ├── budgetBenchmark.ts    # Category classification, benchmarks, under-funding check
-│       ├── planNormalizer.ts     # Validates/coerces model-generated plans
-│       ├── pcm.ts, csv.ts, api.ts, pdfGenerator.ts
-└── tests/setup.ts                # Vitest + Testing Library setup (tests live next to the code)
+│   ├── app.ts                 # createApp(): composes security, routes and error handling
+│   ├── http/                  # Helmet/CSP + rate limits, origin checks, JSON/URL parsing, responses
+│   ├── routes/                # /api/gemini/* and /api/live-token routers
+│   ├── ai.ts                  # AiGateway interface + Gemini implementation (faked in tests)
+│   ├── liveToken.ts           # Locked, single-use Gemini Live ephemeral tokens
+│   ├── validation.ts          # zod request schemas
+│   ├── prompts.ts             # Prompt builders (user input fenced as data)
+│   └── fallbacks.ts           # Labelled reference content when Gemini is unavailable
+└── src/
+    ├── App.tsx                # Layout, plan state, lazily loaded tab panels
+    ├── services/apiClient.ts  # Typed client for every /api endpoint
+    ├── hooks/                 # useDictation (record + transcribe), useCamera
+    ├── live/                  # Gemini Live session hook, audio playback/capture, captions
+    ├── shared/                # Types shared by client and server
+    ├── components/
+    │   ├── ui/                # Accessible Modal, Tabs, SourceBadge/ErrorNotice
+    │   ├── assistant/         # Chat, market research and dictation panels
+    │   ├── floorplan/         # Canvas, seating palette, table inspector
+    │   ├── budget/            # Alerts, benchmarks, add-item form, ledger
+    │   ├── sign/              # Avatar, ASL gloss drafting, sign practice
+    │   └── *.tsx              # Feature screens composing the pieces above
+    └── utils/                 # Pure, unit-tested logic: audit, sightlines, layout, budget, normalisation, PCM, CSV, PDF
 ```
+
+**Conventions:** feature components stay presentational and delegate logic to pure functions in `src/utils` (unit-tested) and side effects to hooks in `src/hooks` / `src/live`. All network access goes through `src/services/apiClient.ts`. Model output is always treated as untrusted and normalised before it reaches state.
 
 ---
 
 ## 🚀 Quickstart & Setup
 
 ### Prerequisites
+
 - **Node.js** $\ge 20.0.0$
 - **npm** $\ge 10.0.0$
 - A valid **Google Gemini API Key** (obtainable from [Google AI Studio](https://aistudio.google.com/))
 
 ### 1. Clone & Install Dependencies
+
 ```bash
 git clone https://github.com/supermanyu90/ClaroCues.git
 cd ClaroCues
@@ -125,11 +128,15 @@ npm install
 ```
 
 ### 2. Configure Environment Variables
+
 Copy `.env.example` to `.env`:
+
 ```bash
 cp .env.example .env
 ```
+
 Populate your environment variables in `.env`:
+
 ```env
 # Gemini API Key for server-side generation, radar, and live sessions
 GEMINI_API_KEY="your-gemini-api-key-here"
@@ -142,15 +149,19 @@ PORT=3000
 ```
 
 ### 3. Run the Development Server
+
 ```bash
 npm run dev
 ```
+
 Open [http://localhost:3000](http://localhost:3000) in your browser. The Express server serves the API endpoints (`/api/*`) and the Vite development middleware.
 
 ### Deploying to Vercel
+
 `vercel.json` serves the built SPA and runs the Express API as a serverless function (`api/index.ts`). Set `GEMINI_API_KEY` in the Vercel project's environment variables. The live concierge works on Vercel because the browser connects to Gemini Live directly with an ephemeral token. One limit applies: Vercel caps request bodies at 4.5 MB, which limits dictation uploads to a few minutes.
 
 ### 4. Build for Production
+
 ```bash
 npm run build
 npm start
@@ -158,15 +169,18 @@ npm start
 
 ---
 
-## ✅ Testing
+## ✅ Quality gates
 
 ```bash
-npm test               # unit, API and component tests (Vitest)
-npm run test:coverage  # with V8 coverage
-npm run check          # typecheck + tests + production build (what CI runs)
+npm run typecheck      # TypeScript strict mode (+ noUnusedLocals/Parameters, noImplicitReturns)
+npm run lint           # ESLint: typescript-eslint strict, React Hooks (incl. React Compiler rules), jsx-a11y; zero warnings
+npm run format:check   # Prettier
+npm test               # Vitest: unit, API (Supertest) and component (Testing Library) tests
+npm run test:coverage  # V8 coverage with enforced thresholds for src/utils and server
+npm run check          # everything above + production build (what CI runs)
 ```
 
-Server routes are tested with Supertest against a fake `AiGateway`, so no API key or network is needed. Component tests use Testing Library and check accessibility behaviour (dialog focus management, ARIA tabs, keyboard operation).
+Server routes are tested against a fake `AiGateway` and a fake token client, so no API key or network is needed. Component tests check behaviour and accessibility (dialog focus management, ARIA tabs, keyboard-operable floorplan, labelled forms).
 
 ---
 
@@ -190,7 +204,7 @@ Server routes are tested with Supertest against a fake `AiGateway`, so no API ke
 - **Output handling**: model JSON is parsed defensively and normalized, links are restricted to `http(s)`, and CSV export neutralizes spreadsheet formulas.
 - **HTTP hardening**: Helmet headers, a strict Content-Security-Policy in production, per-IP rate limiting on `/api/*`, and generic error messages with no stack traces.
 - **Live concierge tokens**: `/api/live-token` only serves same-origin requests (plus `ALLOWED_ORIGINS`), is limited to 6 per minute per IP, and returns `no-store` tokens. Each token works once, must be used within 60 seconds, expires after 30 minutes, and has the model, instructions, voice and captions locked, so a leaked token can't be repurposed. The Origin check stops other websites but not scripted clients, so per-IP rate limits and Gemini quota alerts are the backstop.
-- **No fabricated output**: without Gemini, planning endpoints return content labelled *Offline reference*. Transcription, ASL gloss and sign recognition return an error instead of inventing text.
+- **No fabricated output**: without Gemini, planning endpoints return content labelled _Offline reference_. Transcription, ASL gloss and sign recognition return an error instead of inventing text.
 - **Ephemeral media**: audio and camera frames are only sent while the user is actively recording or checking a sign, and are not stored. Microphone and camera tracks are released when no longer needed.
 
 ---

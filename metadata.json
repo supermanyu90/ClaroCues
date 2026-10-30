@@ -1,11 +1,6 @@
 {
   "name": "ClaroCues",
   "description": "GenAI event planning and execution platform for Deaf and Hard-of-Hearing accessibility, featuring real-time sign language interaction, sightline layout planning, automated budgeting, and sensory visual cues.",
-  "requestFramePermissions": [
-    "camera",
-    "microphone"
-  ],
-  "majorCapabilities": [
-    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
-  ]
+  "requestFramePermissions": ["camera", "microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

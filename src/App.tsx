@@ -1,27 +1,45 @@
-import React, { Suspense, lazy, useCallback, useMemo, useState } from 'react';
-import { Header, NavTab } from './components/Header';
+import { Suspense, lazy, useCallback, useMemo, useState } from 'react';
+import { Header, type NavTab } from './components/Header';
 import { TabList, TabPanel, type TabDef } from './components/ui/Tabs';
 import { GeminiBlueprintModal } from './components/GeminiBlueprintModal';
 import { PdfReportModal } from './components/PdfReportModal';
 import { LiveVoiceAssistantModal } from './components/LiveVoiceAssistantModal';
 import { INITIAL_TABLES, SAMPLE_BIRTHDAY, SAMPLE_COMMUNITY, SAMPLE_WEDDING } from './data/initialBlueprint';
-import { EventPlan, SightlineTable, VendorItem } from './types';
+import { type EventPlan, type SightlineTable, type VendorItem } from './types';
 import { auditPlanAccessibility } from './utils/accessibilityAudit';
 import IMG_WEDDING from './assets/images/wedding.jpg';
 import IMG_DANCEFLOOR from './assets/images/dancefloor.jpg';
 import IMG_GALA from './assets/images/gala.jpg';
 
 // Each tab is its own chunk so the first paint only ships the assistant.
-const AiAssistantChat = lazy(() => import('./components/AiAssistantChat').then((m) => ({ default: m.AiAssistantChat })));
-const PersonalizedIdeasView = lazy(() => import('./components/PersonalizedIdeasView').then((m) => ({ default: m.PersonalizedIdeasView })));
+const AiAssistantChat = lazy(() =>
+  import('./components/AiAssistantChat').then((m) => ({ default: m.AiAssistantChat }))
+);
+const PersonalizedIdeasView = lazy(() =>
+  import('./components/PersonalizedIdeasView').then((m) => ({ default: m.PersonalizedIdeasView }))
+);
 const BudgetPlanner = lazy(() => import('./components/BudgetPlanner').then((m) => ({ default: m.BudgetPlanner })));
-const TimelineManager = lazy(() => import('./components/TimelineManager').then((m) => ({ default: m.TimelineManager })));
-const VendorChecklist = lazy(() => import('./components/VendorChecklist').then((m) => ({ default: m.VendorChecklist })));
-const LocalVenueRadar = lazy(() => import('./components/LocalVenueRadar').then((m) => ({ default: m.LocalVenueRadar })));
-const SignInterpreterEngine = lazy(() => import('./components/SignInterpreterEngine').then((m) => ({ default: m.SignInterpreterEngine })));
-const FloorplanArchitect = lazy(() => import('./components/FloorplanArchitect').then((m) => ({ default: m.FloorplanArchitect })));
-const SensoryVisualConsole = lazy(() => import('./components/SensoryVisualConsole').then((m) => ({ default: m.SensoryVisualConsole })));
-const AccessReadinessAudit = lazy(() => import('./components/AccessReadinessAudit').then((m) => ({ default: m.AccessReadinessAudit })));
+const TimelineManager = lazy(() =>
+  import('./components/TimelineManager').then((m) => ({ default: m.TimelineManager }))
+);
+const VendorChecklist = lazy(() =>
+  import('./components/VendorChecklist').then((m) => ({ default: m.VendorChecklist }))
+);
+const LocalVenueRadar = lazy(() =>
+  import('./components/LocalVenueRadar').then((m) => ({ default: m.LocalVenueRadar }))
+);
+const SignInterpreterEngine = lazy(() =>
+  import('./components/SignInterpreterEngine').then((m) => ({ default: m.SignInterpreterEngine }))
+);
+const FloorplanArchitect = lazy(() =>
+  import('./components/FloorplanArchitect').then((m) => ({ default: m.FloorplanArchitect }))
+);
+const SensoryVisualConsole = lazy(() =>
+  import('./components/SensoryVisualConsole').then((m) => ({ default: m.SensoryVisualConsole }))
+);
+const AccessReadinessAudit = lazy(() =>
+  import('./components/AccessReadinessAudit').then((m) => ({ default: m.AccessReadinessAudit }))
+);
 
 type AccessSubTab = 'audit' | 'floorplan' | 'sensory' | 'avatar';
 
@@ -111,8 +129,15 @@ export default function App() {
         onOpenLiveVoiceModal={() => setIsLiveVoiceOpen(true)}
       />
 
-      <main id="main-content" tabIndex={-1} className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-8 space-y-8 focus:outline-none">
-        <section aria-labelledby="plan-title" className="relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-xl">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-8 space-y-8 focus:outline-none"
+      >
+        <section
+          aria-labelledby="plan-title"
+          className="relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-xl"
+        >
           <div className="grid grid-cols-1 lg:grid-cols-12 items-stretch">
             <div className="lg:col-span-7 p-6 sm:p-8 flex flex-col justify-between space-y-5">
               <div className="space-y-3">
@@ -121,7 +146,9 @@ export default function App() {
                   <span aria-hidden="true">·</span>
                   <span>{currentPlan.guestCount} guests</span>
                   <span aria-hidden="true">·</span>
-                  <span className="font-mono text-teal-400 font-semibold">${currentPlan.totalBudget.toLocaleString()} budget</span>
+                  <span className="font-mono text-teal-400 font-semibold">
+                    ${currentPlan.totalBudget.toLocaleString()} budget
+                  </span>
                   <span aria-hidden="true">·</span>
                   <span>{currentPlan.dhhPercentage}% Deaf / Hard-of-Hearing guests</span>
                 </div>
@@ -176,7 +203,10 @@ export default function App() {
                 decoding="async"
                 className="w-full h-full object-cover"
               />
-              <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent pointer-events-none" />
+              <div
+                aria-hidden="true"
+                className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent pointer-events-none"
+              />
               <div className="absolute bottom-3 left-3 right-3 bg-slate-950/85 backdrop-blur-md border border-slate-800 rounded-lg px-3 py-2 text-xs">
                 <div className="font-semibold text-white truncate">{currentPlan.venueName}</div>
                 <div className="text-[11px] text-teal-300 font-mono">{currentPlan.theme}</div>
@@ -205,7 +235,9 @@ export default function App() {
 
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-1">
             <div className="text-xs text-slate-400">Budget remaining</div>
-            <div className={`text-2xl font-bold font-mono tabular-nums ${totalRemaining >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+            <div
+              className={`text-2xl font-bold font-mono tabular-nums ${totalRemaining >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}
+            >
               ${totalRemaining.toLocaleString()}
             </div>
             <div className="text-[11px] text-slate-400 font-mono">
@@ -274,7 +306,9 @@ export default function App() {
                 countdownPhases={currentPlan.countdownPhases}
                 milestones={currentPlan.timelineMilestones}
                 onUpdatePhases={(phases: EventPlan['countdownPhases']) => updatePlan({ countdownPhases: phases })}
-                onUpdateMilestones={(milestones: EventPlan['timelineMilestones']) => updatePlan({ timelineMilestones: milestones })}
+                onUpdateMilestones={(milestones: EventPlan['timelineMilestones']) =>
+                  updatePlan({ timelineMilestones: milestones })
+                }
               />
             )}
 
@@ -322,7 +356,11 @@ export default function App() {
                   )}
                   {accessSubTab === 'sensory' && <SensoryVisualConsole cues={currentPlan.sensoryAndVisualCues} />}
                   {accessSubTab === 'avatar' && (
-                    <SignInterpreterEngine prepText={interpreterPrepText} eventType={currentPlan.eventType} />
+                    <SignInterpreterEngine
+                      key={interpreterPrepText ?? 'default'}
+                      prepText={interpreterPrepText}
+                      eventType={currentPlan.eventType}
+                    />
                   )}
                 </TabPanel>
               </div>
@@ -341,17 +379,27 @@ export default function App() {
         }}
       />
 
-      <PdfReportModal isOpen={isPdfModalOpen} onClose={() => setIsPdfModalOpen(false)} plan={{ ...currentPlan, seatingLayout }} />
+      <PdfReportModal
+        isOpen={isPdfModalOpen}
+        onClose={() => setIsPdfModalOpen(false)}
+        plan={{ ...currentPlan, seatingLayout }}
+      />
 
-      <LiveVoiceAssistantModal isOpen={isLiveVoiceOpen} onClose={() => setIsLiveVoiceOpen(false)} currentPlan={currentPlan} />
+      <LiveVoiceAssistantModal
+        isOpen={isLiveVoiceOpen}
+        onClose={() => setIsLiveVoiceOpen(false)}
+        currentPlan={currentPlan}
+      />
 
       <footer className="border-t border-slate-900 bg-slate-950 px-6 py-8 text-xs text-slate-400 mt-16">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div>
-            <span className="font-semibold text-slate-300">ClaroCues</span> · Event planning built around Deaf, DeafBlind and
-            Hard-of-Hearing guests
+            <span className="font-semibold text-slate-300">ClaroCues</span> · Event planning built around Deaf,
+            DeafBlind and Hard-of-Hearing guests
           </div>
-          <div>AI drafts are planning aids. Always confirm access details with qualified interpreters and captioners.</div>
+          <div>
+            AI drafts are planning aids. Always confirm access details with qualified interpreters and captioners.
+          </div>
         </div>
       </footer>
     </div>

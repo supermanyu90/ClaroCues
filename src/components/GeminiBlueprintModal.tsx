@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { EventPlan } from '../types';
-import { errorMessage, postJson } from '../utils/api';
+import { useState, type FormEvent } from 'react';
+import { type EventPlan } from '../types';
+import { generatePlan } from '../services/apiClient';
+import { errorMessage } from '../utils/api';
 import { normalizeGeneratedPlan } from '../utils/planNormalizer';
 import { Modal } from './ui/Modal';
 import { ErrorNotice } from './ui/SourceBadge';
@@ -11,11 +12,7 @@ interface GeminiBlueprintModalProps {
   onApplyBlueprint: (plan: EventPlan) => void;
 }
 
-export const GeminiBlueprintModal: React.FC<GeminiBlueprintModalProps> = ({
-  isOpen,
-  onClose,
-  onApplyBlueprint,
-}) => {
+export const GeminiBlueprintModal = ({ isOpen, onClose, onApplyBlueprint }: GeminiBlueprintModalProps) => {
   const [eventType, setEventType] = useState<string>('Accessible Wedding');
   const [guestCount, setGuestCount] = useState<number>(120);
   const [budget, setBudget] = useState<number>(25000);
@@ -29,12 +26,12 @@ export const GeminiBlueprintModal: React.FC<GeminiBlueprintModalProps> = ({
 
   const [error, setError] = useState<string | null>(null);
 
-  const handleGenerate = async (e: React.FormEvent) => {
+  const handleGenerate = async (e: FormEvent) => {
     e.preventDefault();
     setIsGenerating(true);
     setError(null);
     try {
-      const data = await postJson<Record<string, unknown>>('/api/gemini/plan-event', {
+      const data = await generatePlan({
         eventType,
         guestCount,
         budget,
@@ -62,15 +59,19 @@ export const GeminiBlueprintModal: React.FC<GeminiBlueprintModalProps> = ({
       setVenueType('The Atrium Pavilion (Daylight Glasshouse)');
       setTheme('Romantic Warm Amber & Midnight Navy');
       setDhhPercentage(45);
-      setSpecialRequests('Teamed ASL interpreters on 20-min swaps, low centerpieces (<8.5"), single-bite finger food, and sound-to-light LED dance floor.');
+      setSpecialRequests(
+        'Teamed ASL interpreters on 20-min swaps, low centerpieces (<8.5"), single-bite finger food, and sound-to-light LED dance floor.'
+      );
     } else if (presetType === 'birthday') {
-      setEventType('Maya\'s 40th Milestone Birthday Bash');
+      setEventType("Maya's 40th Milestone Birthday Bash");
       setGuestCount(65);
       setBudget(9500);
       setVenueType('Skyline Loft & Rooftop Terrace');
       setTheme('Vibrant 90s Neon Glow & Tactile Rhythm');
       setDhhPercentage(30);
-      setSpecialRequests('DJ with sound-reactive lighting, open craft cocktail/mocktail tasting bar, live interactive trivia with projector captions.');
+      setSpecialRequests(
+        'DJ with sound-reactive lighting, open craft cocktail/mocktail tasting bar, live interactive trivia with projector captions.'
+      );
     } else {
       setEventType('Harmony Valley Community Cultural Gathering');
       setGuestCount(240);
@@ -78,7 +79,9 @@ export const GeminiBlueprintModal: React.FC<GeminiBlueprintModalProps> = ({
       setVenueType('Civic Cultural Center & Heritage Hall');
       setTheme('Unity in Diversity: Sights, Sounds & Shared Flavors');
       setDhhPercentage(35);
-      setSpecialRequests('Dual 150-inch CART screens, 5 local diverse food truck partners, pro-tactile guides for DeafBlind guests, accessible 8ft corridors.');
+      setSpecialRequests(
+        'Dual 150-inch CART screens, 5 local diverse food truck partners, pro-tactile guides for DeafBlind guests, accessible 8ft corridors.'
+      );
     }
   };
 
@@ -121,7 +124,9 @@ export const GeminiBlueprintModal: React.FC<GeminiBlueprintModalProps> = ({
         <form onSubmit={handleGenerate} className="space-y-4 text-xs">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1">
-              <label htmlFor="plan-event-type" className="text-slate-300 font-medium">Event Title / Occasion</label>
+              <label htmlFor="plan-event-type" className="text-slate-300 font-medium">
+                Event Title / Occasion
+              </label>
               <input
                 id="plan-event-type"
                 type="text"
@@ -134,7 +139,9 @@ export const GeminiBlueprintModal: React.FC<GeminiBlueprintModalProps> = ({
             </div>
 
             <div className="space-y-1">
-              <label htmlFor="plan-venue" className="text-slate-300 font-medium">Venue Style / Location</label>
+              <label htmlFor="plan-venue" className="text-slate-300 font-medium">
+                Venue Style / Location
+              </label>
               <input
                 id="plan-venue"
                 type="text"
@@ -181,7 +188,9 @@ export const GeminiBlueprintModal: React.FC<GeminiBlueprintModalProps> = ({
             </div>
 
             <div className="space-y-1">
-              <label htmlFor="plan-budget" className="text-slate-300 font-medium">Total Budget ($)</label>
+              <label htmlFor="plan-budget" className="text-slate-300 font-medium">
+                Total Budget ($)
+              </label>
               <input
                 id="plan-budget"
                 type="number"
@@ -196,9 +205,11 @@ export const GeminiBlueprintModal: React.FC<GeminiBlueprintModalProps> = ({
           </div>
 
           <div className="space-y-1">
-            <label htmlFor="plan-theme" className="text-slate-300 font-medium">Theme & Creative Vibe</label>
+            <label htmlFor="plan-theme" className="text-slate-300 font-medium">
+              Theme & Creative Vibe
+            </label>
             <input
-                id="plan-theme"
+              id="plan-theme"
               type="text"
               value={theme}
               onChange={(e) => setTheme(e.target.value)}
@@ -212,7 +223,7 @@ export const GeminiBlueprintModal: React.FC<GeminiBlueprintModalProps> = ({
               Special Wishes & Priorities (Catering, AV, Music, Surprises)
             </label>
             <textarea
-                id="plan-requests"
+              id="plan-requests"
               rows={3}
               value={specialRequests}
               onChange={(e) => setSpecialRequests(e.target.value)}

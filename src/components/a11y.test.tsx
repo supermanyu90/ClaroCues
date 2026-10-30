@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import App from '../App';
 import { AccessReadinessAudit } from './AccessReadinessAudit';
@@ -9,7 +9,12 @@ import { Modal } from './ui/Modal';
 import { TabList, TabPanel } from './ui/Tabs';
 
 // jsdom lacks matchMedia and scrollIntoView, which the app uses for reduced-motion checks.
-window.matchMedia ??= ((query: string) => ({ matches: false, media: query, addEventListener() {}, removeEventListener() {} })) as never;
+window.matchMedia ??= ((query: string) => ({
+  matches: false,
+  media: query,
+  addEventListener() {},
+  removeEventListener() {},
+})) as never;
 Element.prototype.scrollIntoView ??= () => {};
 
 describe('Modal', () => {

@@ -1,4 +1,4 @@
-import { EventPlan, AslSignItem, SightlineTable } from '../types';
+import { type EventPlan, type AslSignItem, type SightlineTable } from '../types';
 
 export const SAMPLE_WEDDING: EventPlan = {
   id: 'event-wedding',
@@ -18,26 +18,82 @@ export const SAMPLE_WEDDING: EventPlan = {
       'Elevated Interpreter Dias: 18-inch riser Stage Left with non-reflective matte navy curtain',
       'Ceremony Altar / Toast Podium: Centrally positioned with 220° open viewing arc',
       'Dual 75" Low-Glare CART Monitors: Synchronized verbatim caption stream mounted at 15° forward tilt',
-      'Sensory Visual Dance Floor: Centrally located with perimeter floor transducers'
+      'Sensory Visual Dance Floor: Centrally located with perimeter floor transducers',
     ],
     lightingGuidance:
-      'Uniform 5000K diffuse illumination without shadows on signers hands or mouths. Front softboxes eliminate silhouette effect against outdoor windows; strict prohibition of direct backlight behind interpreters.'
+      'Uniform 5000K diffuse illumination without shadows on signers hands or mouths. Front softboxes eliminate silhouette effect against outdoor windows; strict prohibition of direct backlight behind interpreters.',
   },
   interpreterStaffing: {
     teamSize: 2,
     rotationIntervalMinutes: 20,
     qualifications: 'RID NIC Master / Certified Deaf Interpreter (CDI) partnership',
-    prepMaterialWindowDays: 7
+    prepMaterialWindowDays: 7,
   },
   budgetAllocation: [
-    { id: 'b-1', category: 'Venue Rental & Pavilion Staging', amount: 7200, priority: 'Essential', notes: 'Main glasshouse with open amphitheater space', status: 'Booked' },
-    { id: 'b-2', category: 'Catering & Craft Beverage Service', amount: 8900, priority: 'Essential', notes: 'Tapas stations with visual icon allergen cards', status: 'Booked' },
-    { id: 'b-3', category: 'RID-Certified ASL Interpreter Team (Pair)', amount: 2800, priority: 'Essential', notes: '2 certified interpreters for 7 hours including pre-event terminology review', status: 'Booked' },
-    { id: 'b-4', category: 'Real-Time CART Steno Captioning Provider', amount: 1950, priority: 'Essential', notes: 'Certified steno captioner with dedicated ultra-low latency HDMI broadcast feed', status: 'Booked' },
-    { id: 'b-5', category: 'Sound-to-Light Sensory LED Dance Floor Rental', amount: 2400, priority: 'High', notes: '16x16 ft modular LED dance floor with real-time audio-frequency DMX controller', status: 'Estimated' },
-    { id: 'b-6', category: 'Documentary Photography & Cinema Highlights', amount: 2600, priority: 'High', notes: '8 hours of full coverage + expressive signing shots', status: 'Booked' },
-    { id: 'b-7', category: 'Front-Fill Anti-Silhouette Stage Lighting Rig', amount: 1300, priority: 'High', notes: 'High-CRI daylight balanced fixtures ensuring clear lipreading & hand shape visibility', status: 'Booked' },
-    { id: 'b-8', category: 'Florals & Low-Profile Table Decor (<8.5")', amount: 1350, priority: 'High', notes: 'Shallow compotes with floating seasonal ivory roses', status: 'Estimated' }
+    {
+      id: 'b-1',
+      category: 'Venue Rental & Pavilion Staging',
+      amount: 7200,
+      priority: 'Essential',
+      notes: 'Main glasshouse with open amphitheater space',
+      status: 'Booked',
+    },
+    {
+      id: 'b-2',
+      category: 'Catering & Craft Beverage Service',
+      amount: 8900,
+      priority: 'Essential',
+      notes: 'Tapas stations with visual icon allergen cards',
+      status: 'Booked',
+    },
+    {
+      id: 'b-3',
+      category: 'RID-Certified ASL Interpreter Team (Pair)',
+      amount: 2800,
+      priority: 'Essential',
+      notes: '2 certified interpreters for 7 hours including pre-event terminology review',
+      status: 'Booked',
+    },
+    {
+      id: 'b-4',
+      category: 'Real-Time CART Steno Captioning Provider',
+      amount: 1950,
+      priority: 'Essential',
+      notes: 'Certified steno captioner with dedicated ultra-low latency HDMI broadcast feed',
+      status: 'Booked',
+    },
+    {
+      id: 'b-5',
+      category: 'Sound-to-Light Sensory LED Dance Floor Rental',
+      amount: 2400,
+      priority: 'High',
+      notes: '16x16 ft modular LED dance floor with real-time audio-frequency DMX controller',
+      status: 'Estimated',
+    },
+    {
+      id: 'b-6',
+      category: 'Documentary Photography & Cinema Highlights',
+      amount: 2600,
+      priority: 'High',
+      notes: '8 hours of full coverage + expressive signing shots',
+      status: 'Booked',
+    },
+    {
+      id: 'b-7',
+      category: 'Front-Fill Anti-Silhouette Stage Lighting Rig',
+      amount: 1300,
+      priority: 'High',
+      notes: 'High-CRI daylight balanced fixtures ensuring clear lipreading & hand shape visibility',
+      status: 'Booked',
+    },
+    {
+      id: 'b-8',
+      category: 'Florals & Low-Profile Table Decor (<8.5")',
+      amount: 1350,
+      priority: 'High',
+      notes: 'Shallow compotes with floating seasonal ivory roses',
+      status: 'Estimated',
+    },
   ],
   countdownPhases: [
     {
@@ -45,42 +101,107 @@ export const SAMPLE_WEDDING: EventPlan = {
       timeframe: '6–9 Months Before',
       description: 'Foundations, accessible venue booking, and core team procurement',
       tasks: [
-        { id: 't-101', title: 'Confirm guest count (130) and master budget ($28,500)', category: 'Planning', completed: true },
-        { id: 't-102', title: 'Tour and book The Atrium Pavilion with radial seating walkthrough', category: 'Venue', completed: true },
-        { id: 't-103', title: 'Contract paired RID NIC Master interpreters with 20-min swap policy', category: 'Accessibility', completed: true },
-        { id: 't-104', title: 'Book lead documentary photographer and artisan caterer', category: 'Vendors', completed: true }
-      ]
+        {
+          id: 't-101',
+          title: 'Confirm guest count (130) and master budget ($28,500)',
+          category: 'Planning',
+          completed: true,
+        },
+        {
+          id: 't-102',
+          title: 'Tour and book The Atrium Pavilion with radial seating walkthrough',
+          category: 'Venue',
+          completed: true,
+        },
+        {
+          id: 't-103',
+          title: 'Contract paired RID NIC Master interpreters with 20-min swap policy',
+          category: 'Accessibility',
+          completed: true,
+        },
+        {
+          id: 't-104',
+          title: 'Book lead documentary photographer and artisan caterer',
+          category: 'Vendors',
+          completed: true,
+        },
+      ],
     },
     {
       id: 'phase-2',
       timeframe: '3–4 Months Before',
       description: 'Sensory design selections, menu tastings, and invitations',
       tasks: [
-        { id: 't-201', title: 'Finalize floral centerpieces capped strictly under 8.5 inches', category: 'Decor', completed: true },
-        { id: 't-202', title: 'Tasting with caterer: verify bilingual icon dietary cards', category: 'Catering', completed: true },
-        { id: 't-203', title: 'Send formal invitations with accessibility RSVP options', category: 'Stationery', completed: false }
-      ]
+        {
+          id: 't-201',
+          title: 'Finalize floral centerpieces capped strictly under 8.5 inches',
+          category: 'Decor',
+          completed: true,
+        },
+        {
+          id: 't-202',
+          title: 'Tasting with caterer: verify bilingual icon dietary cards',
+          category: 'Catering',
+          completed: true,
+        },
+        {
+          id: 't-203',
+          title: 'Send formal invitations with accessibility RSVP options',
+          category: 'Stationery',
+          completed: false,
+        },
+      ],
     },
     {
       id: 'phase-3',
       timeframe: '1 Month Before',
       description: 'Timeline calibration, cue triggers, and tech check',
       tasks: [
-        { id: 't-301', title: 'Lock minute-by-minute day-of schedule with visual lighting cues', category: 'Timeline', completed: false },
-        { id: 't-302', title: 'Deliver wedding vows and speech drafts to interpreters for prep', category: 'Accessibility', completed: false },
-        { id: 't-303', title: 'Calibrate CART caption delay (<300ms) with AV technicians', category: 'AV/Tech', completed: false }
-      ]
+        {
+          id: 't-301',
+          title: 'Lock minute-by-minute day-of schedule with visual lighting cues',
+          category: 'Timeline',
+          completed: false,
+        },
+        {
+          id: 't-302',
+          title: 'Deliver wedding vows and speech drafts to interpreters for prep',
+          category: 'Accessibility',
+          completed: false,
+        },
+        {
+          id: 't-303',
+          title: 'Calibrate CART caption delay (<300ms) with AV technicians',
+          category: 'AV/Tech',
+          completed: false,
+        },
+      ],
     },
     {
       id: 'phase-4',
       timeframe: 'Final Week & Day-Of',
       description: 'Execution, tech rehearsal, and celebration',
       tasks: [
-        { id: 't-401', title: 'On-site sightline check from all guest tables to interpreter dias', category: 'Layout', completed: false },
-        { id: 't-402', title: 'Test sound-to-light LED dance floor and sub-bass transducers', category: 'Sensory', completed: false },
-        { id: 't-403', title: 'Trigger visual amber lighting chimes for speech transitions', category: 'Day-Of', completed: false }
-      ]
-    }
+        {
+          id: 't-401',
+          title: 'On-site sightline check from all guest tables to interpreter dias',
+          category: 'Layout',
+          completed: false,
+        },
+        {
+          id: 't-402',
+          title: 'Test sound-to-light LED dance floor and sub-bass transducers',
+          category: 'Sensory',
+          completed: false,
+        },
+        {
+          id: 't-403',
+          title: 'Trigger visual amber lighting chimes for speech transitions',
+          category: 'Day-Of',
+          completed: false,
+        },
+      ],
+    },
   ],
   vendorChecklist: [
     {
@@ -94,10 +215,10 @@ export const SAMPLE_WEDDING: EventPlan = {
       keyQuestions: [
         'Is there any architectural column blocking viewing angles from Table 6?',
         'What are the loading dock hours for LED dancefloor installation?',
-        'Does the house lighting dim smoothly without flickering for visual announcements?'
+        'Does the house lighting dim smoothly without flickering for visual announcements?',
       ],
       deadline: '8 Months Out',
-      notes: 'Radial semi-circle layout diagram sent to floor manager'
+      notes: 'Radial semi-circle layout diagram sent to floor manager',
     },
     {
       id: 'v-2',
@@ -110,10 +231,10 @@ export const SAMPLE_WEDDING: EventPlan = {
       keyQuestions: [
         'Can the teamed interpreters do 20-minute swaps during the 90-minute ceremony and toasts?',
         'Do the interpreters need dedicated green room rest space with low lighting?',
-        'When do you need the finalized speech and vow manuscripts?'
+        'When do you need the finalized speech and vow manuscripts?',
       ],
       deadline: '6 Months Out',
-      notes: 'Teamed pair confirmed; green room allocated backstage'
+      notes: 'Teamed pair confirmed; green room allocated backstage',
     },
     {
       id: 'v-3',
@@ -125,11 +246,11 @@ export const SAMPLE_WEDDING: EventPlan = {
       estimatedCost: 8900,
       keyQuestions: [
         'Can dietary cards at food stations include clear visual icons (Gluten-Free, Vegan, Nut-Free)?',
-        'Can hors d\'oeuvres be single-bite size so guests can sign with one hand free?',
-        'What is the staff-to-guest ratio for the reception?'
+        "Can hors d'oeuvres be single-bite size so guests can sign with one hand free?",
+        'What is the staff-to-guest ratio for the reception?',
       ],
       deadline: '5 Months Out',
-      notes: 'Single-bite finger food approved for cocktail hour'
+      notes: 'Single-bite finger food approved for cocktail hour',
     },
     {
       id: 'v-4',
@@ -142,59 +263,114 @@ export const SAMPLE_WEDDING: EventPlan = {
       keyQuestions: [
         'Have you captured ceremonies with sign language interpreters before?',
         'Can you shoot with wide lenses to capture expressive signing and facial grammar?',
-        'Are raw speech audio recordings included for archival caption sync?'
+        'Are raw speech audio recordings included for archival caption sync?',
       ],
       deadline: '6 Months Out',
-      notes: 'Lead shooter briefed on wide-angle signing frames'
-    }
+      notes: 'Lead shooter briefed on wide-angle signing frames',
+    },
   ],
   timelineMilestones: [
-    { id: 't-1', time: '14:30', title: 'Tech Rigging & Sightline Rehearsal', details: 'Check lighting wash on interpreter station; verify CART steno latency <300ms', cueType: 'caption' },
-    { id: 't-2', time: '15:30', title: 'Arrival & Welcome Reception', details: 'Visual signage active; ambient violet lighting welcome', cueType: 'visual' },
-    { id: 't-3', time: '16:00', title: 'Ceremony: Processional & Vows', details: 'Team ASL rotation begins; synchronized visual entrance cues', cueType: 'interpreter', interpreterRotation: true },
-    { id: 't-4', time: '16:20', title: 'Interpreter Swap Point 1', details: 'Scheduled seamless interpreter swap between Lead and Teaming interpreter', cueType: 'interpreter', interpreterRotation: true },
-    { id: 't-5', time: '17:00', title: 'Cocktail Hour & Sensory Buffer', details: 'Spacious table layout allowing open sign circles without elbow bumping', cueType: 'milestone' },
-    { id: 't-6', time: '18:15', title: 'Dinner Call (Triple Visual Chime)', details: 'Ambient lights dip to 60% three times to gather guests', cueType: 'visual' },
-    { id: 't-7', time: '19:00', title: 'Visual Toasts & Speeches', details: 'Toast podium illuminated with dedicated interpreter side-by-side spot', cueType: 'interpreter', interpreterRotation: true },
-    { id: 't-8', time: '20:00', title: 'Sensory Vibration Dance Floor Kickoff', details: 'Visual audio equalizer streaming on displays; haptic floor engaged', cueType: 'haptic' }
+    {
+      id: 't-1',
+      time: '14:30',
+      title: 'Tech Rigging & Sightline Rehearsal',
+      details: 'Check lighting wash on interpreter station; verify CART steno latency <300ms',
+      cueType: 'caption',
+    },
+    {
+      id: 't-2',
+      time: '15:30',
+      title: 'Arrival & Welcome Reception',
+      details: 'Visual signage active; ambient violet lighting welcome',
+      cueType: 'visual',
+    },
+    {
+      id: 't-3',
+      time: '16:00',
+      title: 'Ceremony: Processional & Vows',
+      details: 'Team ASL rotation begins; synchronized visual entrance cues',
+      cueType: 'interpreter',
+      interpreterRotation: true,
+    },
+    {
+      id: 't-4',
+      time: '16:20',
+      title: 'Interpreter Swap Point 1',
+      details: 'Scheduled seamless interpreter swap between Lead and Teaming interpreter',
+      cueType: 'interpreter',
+      interpreterRotation: true,
+    },
+    {
+      id: 't-5',
+      time: '17:00',
+      title: 'Cocktail Hour & Sensory Buffer',
+      details: 'Spacious table layout allowing open sign circles without elbow bumping',
+      cueType: 'milestone',
+    },
+    {
+      id: 't-6',
+      time: '18:15',
+      title: 'Dinner Call (Triple Visual Chime)',
+      details: 'Ambient lights dip to 60% three times to gather guests',
+      cueType: 'visual',
+    },
+    {
+      id: 't-7',
+      time: '19:00',
+      title: 'Visual Toasts & Speeches',
+      details: 'Toast podium illuminated with dedicated interpreter side-by-side spot',
+      cueType: 'interpreter',
+      interpreterRotation: true,
+    },
+    {
+      id: 't-8',
+      time: '20:00',
+      title: 'Sensory Vibration Dance Floor Kickoff',
+      details: 'Visual audio equalizer streaming on displays; haptic floor engaged',
+      cueType: 'haptic',
+    },
   ],
   personalizedIdeas: [
     {
       id: 'idea-1',
       category: 'Theme & Palette',
       title: 'Warm Terracotta & Midnight Navy Harmony',
-      description: 'High-contrast palette that creates a rich festive ambiance while providing dark, non-reflective backdrops behind signers and speakers for effortless visual focus.',
+      description:
+        'High-contrast palette that creates a rich festive ambiance while providing dark, non-reflective backdrops behind signers and speakers for effortless visual focus.',
       budgetImpact: 'Low',
       implementationTip: 'Use midnight navy linens with warm amber and brass metallic accents.',
-      isSaved: true
+      isSaved: true,
     },
     {
       id: 'idea-2',
       category: 'Food & Beverage',
       title: 'One-Handed Artisan Tapas & Bilingual Icon Menu',
-      description: 'Cocktail hour bites engineered to be enjoyed with one hand so guests can hold a plate and sign with their free hand effortlessly.',
+      description:
+        'Cocktail hour bites engineered to be enjoyed with one hand so guests can hold a plate and sign with their free hand effortlessly.',
       budgetImpact: 'Medium',
       implementationTip: 'Request cocktail forks or skewer-based appetizers from caterer.',
-      isSaved: true
+      isSaved: true,
     },
     {
       id: 'idea-3',
       category: 'Interactive Experience',
       title: 'Sound-to-Light Interactive Dance Floor & Equalizer Wall',
-      description: 'A radiant dance surface that maps low frequencies and musical beats into visible chromatic ripples, allowing Deaf and hearing guests to share the music equally.',
+      description:
+        'A radiant dance surface that maps low frequencies and musical beats into visible chromatic ripples, allowing Deaf and hearing guests to share the music equally.',
       budgetImpact: 'Medium',
       implementationTip: 'Pair with sub-floor bass transducers for tactile rhythm experience.',
-      isSaved: true
+      isSaved: true,
     },
     {
       id: 'idea-4',
       category: 'Inclusive Touch',
       title: 'Low-Profile Floating Flora & Silent Glass Clinking Cues',
-      description: 'All table floral centerpieces capped under 8.5 inches so guests have uninterrupted eye contact across the table, plus custom glass tags for visual toasts.',
+      description:
+        'All table floral centerpieces capped under 8.5 inches so guests have uninterrupted eye contact across the table, plus custom glass tags for visual toasts.',
       budgetImpact: 'Low',
       implementationTip: 'Use wide shallow ceramic compotes with floating seasonal blooms.',
-      isSaved: true
-    }
+      isSaved: true,
+    },
   ],
   sensoryAndVisualCues: [
     {
@@ -202,48 +378,64 @@ export const SAMPLE_WEDDING: EventPlan = {
       trigger: 'Ceremony Seating Call (10 min warning)',
       visualCue: 'Ambient perimeter wall wash transitions from violet to warm amber pulse (60 BPM)',
       hapticCue: 'Low-frequency rhythmic floor pulse (35Hz) on arrival perimeter risers',
-      captionMode: 'Pre-ceremony welcome slideshow with bilingual text and ASL video introduction'
+      captionMode: 'Pre-ceremony welcome slideshow with bilingual text and ASL video introduction',
     },
     {
       id: 'cue-2',
       trigger: 'Processional & Bride Entrance',
       visualCue: 'Main chandelier dims 30%; center aisle architectural uplights gently flare in warm gold',
       hapticCue: 'Rhythmic sub-bass transducer pulse signaling processional tempo',
-      captionMode: 'Real-time musical accompaniment lyrics and emotional mood transcription'
+      captionMode: 'Real-time musical accompaniment lyrics and emotional mood transcription',
     },
     {
       id: 'cue-3',
       trigger: 'Vows & Exchange of Rings',
       visualCue: 'High-CRI 95+ focused spotlights on couple and ASL interpreter station simultaneously',
       hapticCue: 'Discrete haptic badge alert to designated family members',
-      captionMode: 'Verbatim steno CART captions with highlighted speaker identifiers'
+      captionMode: 'Verbatim steno CART captions with highlighted speaker identifiers',
     },
     {
       id: 'cue-4',
       trigger: 'Dinner Call & Welcome Toasts',
       visualCue: 'Gentle overhead triple visual chime (lights dip to 60% and return 3 times over 4 seconds)',
       hapticCue: 'Table perimeter vibration ring active for 2 seconds',
-      captionMode: 'Dinner menu display and toast order lineup on side monitors'
+      captionMode: 'Dinner menu display and toast order lineup on side monitors',
     },
     {
       id: 'cue-5',
       trigger: 'First Dance & Celebratory Party',
       visualCue: 'Dynamic sound-to-light LED floor mapping musical frequencies into chromatic waves',
       hapticCue: 'Acoustic sub-floor bass transducers vibrating at low frequencies (20Hz - 80Hz)',
-      captionMode: 'Live song lyrics display with real-time visual rhythm equalizer graphic'
-    }
+      captionMode: 'Live song lyrics display with real-time visual rhythm equalizer graphic',
+    },
   ],
   readinessChecklist: [
-    { item: 'Interpreter Sightline Clearance Matrix', status: 'Verified', detail: '100% of guest seats have direct, column-free line of sight to interpreter riser and CART screen' },
-    { item: 'Centerpiece Height Compliance', status: 'Verified', detail: 'Floral arrangements capped at 8.5 inches maximum to ensure unobstructed table sign communication' },
-    { item: 'Anti-Silhouette Stage Lighting', status: 'Verified', detail: 'Front 5000K diffusers eliminate backlight shadows on interpreter faces and hands' },
-    { item: 'Emergency Visual Beacon Verification', status: 'Verified', detail: 'Venue strobe alarm systems integrated and tested with local event coordinator' }
-  ]
+    {
+      item: 'Interpreter Sightline Clearance Matrix',
+      status: 'Verified',
+      detail: '100% of guest seats have direct, column-free line of sight to interpreter riser and CART screen',
+    },
+    {
+      item: 'Centerpiece Height Compliance',
+      status: 'Verified',
+      detail: 'Floral arrangements capped at 8.5 inches maximum to ensure unobstructed table sign communication',
+    },
+    {
+      item: 'Anti-Silhouette Stage Lighting',
+      status: 'Verified',
+      detail: 'Front 5000K diffusers eliminate backlight shadows on interpreter faces and hands',
+    },
+    {
+      item: 'Emergency Visual Beacon Verification',
+      status: 'Verified',
+      detail: 'Venue strobe alarm systems integrated and tested with local event coordinator',
+    },
+  ],
 };
 
 export const SAMPLE_BIRTHDAY: EventPlan = {
   id: 'event-birthday',
-  title: 'Maya\'s 40th Milestone Birthday Bash',
+  title: "Maya's 40th Milestone Birthday Bash",
   eventType: 'birthday',
   guestCount: 65,
   dhhPercentage: 30,
@@ -256,21 +448,63 @@ export const SAMPLE_BIRTHDAY: EventPlan = {
   sightlineAndSeating: {
     recommendedLayout: 'Open Lounge Pods with Curved Low Banquettes',
     focalZones: ['DJ Stage Center', 'Rooftop Bar East', 'Lounge Pods West'],
-    lightingGuidance: 'Dynamic RGB sound-reactive ambient perimeter wash; clear front light on cake podium.'
+    lightingGuidance: 'Dynamic RGB sound-reactive ambient perimeter wash; clear front light on cake podium.',
   },
   interpreterStaffing: {
     teamSize: 2,
     rotationIntervalMinutes: 25,
     qualifications: 'RID Certified Interpreter for toasts & game hosting',
-    prepMaterialWindowDays: 5
+    prepMaterialWindowDays: 5,
   },
   budgetAllocation: [
-    { id: 'b-b1', category: 'Loft Venue & Rooftop Terrace Rental', amount: 3200, priority: 'Essential', notes: '4pm to 1am including bar setup', status: 'Booked' },
-    { id: 'b-b2', category: 'Craft Cocktail & Mocktail Tap Bar', amount: 2600, priority: 'Essential', notes: 'Open bar with 2 signature drinks + craft beers', status: 'Booked' },
-    { id: 'b-b3', category: 'DJ, Sound-to-Light DMX Lighting & Floor', amount: 1600, priority: 'High', notes: 'Frequency-reactive LED dance floor', status: 'Estimated' },
-    { id: 'b-b4', category: 'Photography & Candid Polaroid Station', amount: 950, priority: 'High', notes: 'Candid event photographer + instant camera guestbook', status: 'Booked' },
-    { id: 'b-b5', category: 'Custom 90s Theme Cake & Midnight Snacks', amount: 650, priority: 'Recommended', notes: 'Late night slider station and custom cake', status: 'Estimated' },
-    { id: 'b-b6', category: 'Live CART Captions for Trivia & Speeches', amount: 500, priority: 'Recommended', notes: 'Real-time steno feed on loft projector', status: 'Estimated' }
+    {
+      id: 'b-b1',
+      category: 'Loft Venue & Rooftop Terrace Rental',
+      amount: 3200,
+      priority: 'Essential',
+      notes: '4pm to 1am including bar setup',
+      status: 'Booked',
+    },
+    {
+      id: 'b-b2',
+      category: 'Craft Cocktail & Mocktail Tap Bar',
+      amount: 2600,
+      priority: 'Essential',
+      notes: 'Open bar with 2 signature drinks + craft beers',
+      status: 'Booked',
+    },
+    {
+      id: 'b-b3',
+      category: 'DJ, Sound-to-Light DMX Lighting & Floor',
+      amount: 1600,
+      priority: 'High',
+      notes: 'Frequency-reactive LED dance floor',
+      status: 'Estimated',
+    },
+    {
+      id: 'b-b4',
+      category: 'Photography & Candid Polaroid Station',
+      amount: 950,
+      priority: 'High',
+      notes: 'Candid event photographer + instant camera guestbook',
+      status: 'Booked',
+    },
+    {
+      id: 'b-b5',
+      category: 'Custom 90s Theme Cake & Midnight Snacks',
+      amount: 650,
+      priority: 'Recommended',
+      notes: 'Late night slider station and custom cake',
+      status: 'Estimated',
+    },
+    {
+      id: 'b-b6',
+      category: 'Live CART Captions for Trivia & Speeches',
+      amount: 500,
+      priority: 'Recommended',
+      notes: 'Real-time steno feed on loft projector',
+      status: 'Estimated',
+    },
   ],
   countdownPhases: [
     {
@@ -279,28 +513,58 @@ export const SAMPLE_BIRTHDAY: EventPlan = {
       description: 'Venue booking and DJ alignment',
       tasks: [
         { id: 'tb-1', title: 'Lock in Skyline Loft rental agreement', category: 'Venue', completed: true },
-        { id: 'tb-2', title: 'Hire DJ experienced with sound-to-light visual equipment', category: 'Entertainment', completed: true },
-        { id: 'tb-3', title: 'Create digital RSVP link with favorite song requests', category: 'Planning', completed: true }
-      ]
+        {
+          id: 'tb-2',
+          title: 'Hire DJ experienced with sound-to-light visual equipment',
+          category: 'Entertainment',
+          completed: true,
+        },
+        {
+          id: 'tb-3',
+          title: 'Create digital RSVP link with favorite song requests',
+          category: 'Planning',
+          completed: true,
+        },
+      ],
     },
     {
       id: 'p-b2',
       timeframe: '1 Month Before',
       description: 'Menu, custom cocktails, and playlist curation',
       tasks: [
-        { id: 'tb-4', title: 'Finalize craft cocktail recipes and mocktail options', category: 'Catering', completed: false },
-        { id: 'tb-5', title: 'Assemble 90s milestone playlist and trivia quiz questions', category: 'Entertainment', completed: false }
-      ]
+        {
+          id: 'tb-4',
+          title: 'Finalize craft cocktail recipes and mocktail options',
+          category: 'Catering',
+          completed: false,
+        },
+        {
+          id: 'tb-5',
+          title: 'Assemble 90s milestone playlist and trivia quiz questions',
+          category: 'Entertainment',
+          completed: false,
+        },
+      ],
     },
     {
       id: 'p-b3',
       timeframe: 'Week Of Party',
       description: 'Decor setup and cake delivery coordination',
       tasks: [
-        { id: 'tb-6', title: 'Pick up neon acrylic decor and customized guest favors', category: 'Decor', completed: false },
-        { id: 'tb-7', title: 'Set up projection screens for photo slideshow and live trivia', category: 'AV/Tech', completed: false }
-      ]
-    }
+        {
+          id: 'tb-6',
+          title: 'Pick up neon acrylic decor and customized guest favors',
+          category: 'Decor',
+          completed: false,
+        },
+        {
+          id: 'tb-7',
+          title: 'Set up projection screens for photo slideshow and live trivia',
+          category: 'AV/Tech',
+          completed: false,
+        },
+      ],
+    },
   ],
   vendorChecklist: [
     {
@@ -313,7 +577,7 @@ export const SAMPLE_BIRTHDAY: EventPlan = {
       estimatedCost: 3200,
       keyQuestions: ['What is the noise curfew for the outdoor terrace?', 'Is there an on-site ice machine?'],
       deadline: 'Month 3',
-      notes: 'Full deposit paid'
+      notes: 'Full deposit paid',
     },
     {
       id: 'vb-2',
@@ -325,34 +589,60 @@ export const SAMPLE_BIRTHDAY: EventPlan = {
       estimatedCost: 1600,
       keyQuestions: ['Do you bring your own DMX light fixtures?', 'Can we supply a custom must-play playlist?'],
       deadline: 'Month 2',
-      notes: 'Confirmed 90s hip-hop & dance sets'
-    }
+      notes: 'Confirmed 90s hip-hop & dance sets',
+    },
   ],
   timelineMilestones: [
-    { id: 'tm-b1', time: '18:30', title: 'Rooftop Doors Open & Cocktail Hour', details: 'Welcome drinks poured, ambient sunset lighting', cueType: 'visual' },
-    { id: 'tm-b2', time: '19:45', title: 'Milestone Trivia & Slideshow', details: 'Dual screens host interactive trivia with live captions', cueType: 'caption' },
-    { id: 'tm-b3', time: '20:30', title: 'Cake Cutting & Birthday Toast', details: 'Triple amber flash signals guests to gather near terrace', cueType: 'visual' },
-    { id: 'tm-b4', time: '21:00', title: 'Sound-to-Light Dancefloor Opening', details: 'High-energy DJ set with bass floor pulsing', cueType: 'haptic' }
+    {
+      id: 'tm-b1',
+      time: '18:30',
+      title: 'Rooftop Doors Open & Cocktail Hour',
+      details: 'Welcome drinks poured, ambient sunset lighting',
+      cueType: 'visual',
+    },
+    {
+      id: 'tm-b2',
+      time: '19:45',
+      title: 'Milestone Trivia & Slideshow',
+      details: 'Dual screens host interactive trivia with live captions',
+      cueType: 'caption',
+    },
+    {
+      id: 'tm-b3',
+      time: '20:30',
+      title: 'Cake Cutting & Birthday Toast',
+      details: 'Triple amber flash signals guests to gather near terrace',
+      cueType: 'visual',
+    },
+    {
+      id: 'tm-b4',
+      time: '21:00',
+      title: 'Sound-to-Light Dancefloor Opening',
+      details: 'High-energy DJ set with bass floor pulsing',
+      cueType: 'haptic',
+    },
   ],
   personalizedIdeas: [
     {
       id: 'ib-1',
       category: 'Theme & Palette',
       title: 'Electric 90s Neon & Midnight Blackout',
-      description: 'Bold neon signage paired with matte black surfaces, creating a vibrant retro party environment with high visual punch.',
+      description:
+        'Bold neon signage paired with matte black surfaces, creating a vibrant retro party environment with high visual punch.',
       budgetImpact: 'Low',
       implementationTip: 'Rent customized neon number "40" sign for photo booth.',
-      isSaved: true
+      isSaved: true,
     },
     {
       id: 'ib-2',
       category: 'Interactive Experience',
       title: 'Crowdsourced Live Video Memory Wall',
-      description: 'Guests scan a QR code to upload photos and short video clips that display on the main screen in real time.',
+      description:
+        'Guests scan a QR code to upload photos and short video clips that display on the main screen in real time.',
       budgetImpact: 'Low',
       implementationTip: 'Use a free live photo wall web app connected to the venue TV.',
-      isSaved: true
-    }
+      isSaved: true,
+    },
   ],
   sensoryAndVisualCues: [
     {
@@ -360,13 +650,17 @@ export const SAMPLE_BIRTHDAY: EventPlan = {
       trigger: 'Cake Cutting Time',
       visualCue: 'Gentle warm golden pulse across all loft overhead fixtures',
       hapticCue: 'Rhythmic table beacon vibration alert',
-      captionMode: 'Displayed on main projector with countdown timer'
-    }
+      captionMode: 'Displayed on main projector with countdown timer',
+    },
   ],
   readinessChecklist: [
-    { item: 'Audio-to-Light DMX Mapping Check', status: 'Ready', detail: 'Dance floor lights respond seamlessly to DJ audio output' },
-    { item: 'Rooftop Accessibility Access', status: 'Verified', detail: 'Elevator operational to penthouse terrace' }
-  ]
+    {
+      item: 'Audio-to-Light DMX Mapping Check',
+      status: 'Ready',
+      detail: 'Dance floor lights respond seamlessly to DJ audio output',
+    },
+    { item: 'Rooftop Accessibility Access', status: 'Verified', detail: 'Elevator operational to penthouse terrace' },
+  ],
 };
 
 export const SAMPLE_COMMUNITY: EventPlan = {
@@ -384,22 +678,71 @@ export const SAMPLE_COMMUNITY: EventPlan = {
   sightlineAndSeating: {
     recommendedLayout: 'Concentric Semi-Circle Amphitheater with 8ft Accessible Walkways',
     focalZones: ['Cultural Performance Dais', 'Keynote Podium Stage Center', 'Dual 150" Projection Screens'],
-    lightingGuidance: 'High-CRI 96 daylight wash across stage and interpreter platforms; zero backlight glare.'
+    lightingGuidance: 'High-CRI 96 daylight wash across stage and interpreter platforms; zero backlight glare.',
   },
   interpreterStaffing: {
     teamSize: 3,
     rotationIntervalMinutes: 20,
     qualifications: 'RID Certified Legal/Conference Interpreters + CDI',
-    prepMaterialWindowDays: 10
+    prepMaterialWindowDays: 10,
   },
   budgetAllocation: [
-    { id: 'b-c1', category: 'Civic Center Auditorium & Hall Rental', amount: 8500, priority: 'Essential', notes: 'Full civic center access including sound system', status: 'Booked' },
-    { id: 'b-c2', category: 'Multi-Cultural Food Truck & Buffet Stalls', amount: 11500, priority: 'Essential', notes: '5 local immigrant-owned food partners', status: 'Booked' },
-    { id: 'b-c3', category: 'Certified ASL / CDI & Pro-Tactile Team', amount: 4200, priority: 'Essential', notes: '3 interpreters + 2 tactile guides for full day', status: 'Booked' },
-    { id: 'b-c4', category: 'Dual 150" Projection CART Displays & AV', amount: 3800, priority: 'Essential', notes: 'Verbatim dual language steno live captioning', status: 'Booked' },
-    { id: 'b-c5', category: 'Cultural Artisan Staging & Decor', amount: 3200, priority: 'High', notes: 'Handwoven textiles, low plant arrangements', status: 'Estimated' },
-    { id: 'b-c6', category: 'Community Event Insurance & Permits', amount: 1600, priority: 'Base', notes: 'City event permit and liability policy', status: 'Booked' },
-    { id: 'b-c7', category: 'Volunteer Appreciation & Signage', amount: 1200, priority: 'Recommended', notes: 'Large high-contrast directional signage', status: 'Estimated' }
+    {
+      id: 'b-c1',
+      category: 'Civic Center Auditorium & Hall Rental',
+      amount: 8500,
+      priority: 'Essential',
+      notes: 'Full civic center access including sound system',
+      status: 'Booked',
+    },
+    {
+      id: 'b-c2',
+      category: 'Multi-Cultural Food Truck & Buffet Stalls',
+      amount: 11500,
+      priority: 'Essential',
+      notes: '5 local immigrant-owned food partners',
+      status: 'Booked',
+    },
+    {
+      id: 'b-c3',
+      category: 'Certified ASL / CDI & Pro-Tactile Team',
+      amount: 4200,
+      priority: 'Essential',
+      notes: '3 interpreters + 2 tactile guides for full day',
+      status: 'Booked',
+    },
+    {
+      id: 'b-c4',
+      category: 'Dual 150" Projection CART Displays & AV',
+      amount: 3800,
+      priority: 'Essential',
+      notes: 'Verbatim dual language steno live captioning',
+      status: 'Booked',
+    },
+    {
+      id: 'b-c5',
+      category: 'Cultural Artisan Staging & Decor',
+      amount: 3200,
+      priority: 'High',
+      notes: 'Handwoven textiles, low plant arrangements',
+      status: 'Estimated',
+    },
+    {
+      id: 'b-c6',
+      category: 'Community Event Insurance & Permits',
+      amount: 1600,
+      priority: 'Base',
+      notes: 'City event permit and liability policy',
+      status: 'Booked',
+    },
+    {
+      id: 'b-c7',
+      category: 'Volunteer Appreciation & Signage',
+      amount: 1200,
+      priority: 'Recommended',
+      notes: 'Large high-contrast directional signage',
+      status: 'Estimated',
+    },
   ],
   countdownPhases: [
     {
@@ -407,9 +750,19 @@ export const SAMPLE_COMMUNITY: EventPlan = {
       timeframe: '6 Months Before',
       description: 'City permits, civic center lease, and community partner outreach',
       tasks: [
-        { id: 'tc-1', title: 'Submit civic center event permits and accessibility plan', category: 'Permits', completed: true },
-        { id: 'tc-2', title: 'Form steering committee with community representatives', category: 'Planning', completed: true }
-      ]
+        {
+          id: 'tc-1',
+          title: 'Submit civic center event permits and accessibility plan',
+          category: 'Permits',
+          completed: true,
+        },
+        {
+          id: 'tc-2',
+          title: 'Form steering committee with community representatives',
+          category: 'Planning',
+          completed: true,
+        },
+      ],
     },
     {
       id: 'p-c2',
@@ -417,18 +770,33 @@ export const SAMPLE_COMMUNITY: EventPlan = {
       description: 'Vendor selection and interpreter contracting',
       tasks: [
         { id: 'tc-3', title: 'Contract 5 diverse culinary vendor partners', category: 'Catering', completed: true },
-        { id: 'tc-4', title: 'Secure 3 RID-certified interpreters and pro-tactile team', category: 'Accessibility', completed: true }
-      ]
+        {
+          id: 'tc-4',
+          title: 'Secure 3 RID-certified interpreters and pro-tactile team',
+          category: 'Accessibility',
+          completed: true,
+        },
+      ],
     },
     {
       id: 'p-c3',
       timeframe: '1 Month Before',
       description: 'Program printing, volunteer briefing, and AV dry run',
       tasks: [
-        { id: 'tc-5', title: 'Print large-print visual programs and directional signage', category: 'Stationery', completed: false },
-        { id: 'tc-6', title: 'Conduct volunteer orientation on visual communication etiquette', category: 'Volunteers', completed: false }
-      ]
-    }
+        {
+          id: 'tc-5',
+          title: 'Print large-print visual programs and directional signage',
+          category: 'Stationery',
+          completed: false,
+        },
+        {
+          id: 'tc-6',
+          title: 'Conduct volunteer orientation on visual communication etiquette',
+          category: 'Volunteers',
+          completed: false,
+        },
+      ],
+    },
   ],
   vendorChecklist: [
     {
@@ -439,9 +807,12 @@ export const SAMPLE_COMMUNITY: EventPlan = {
       emailPhone: 'rchen@civiccenter.gov · (555) 201-4400',
       status: 'Booked',
       estimatedCost: 8500,
-      keyQuestions: ['Are hearing induction loop systems active in Main Hall?', 'Where are accessible parking stalls located?'],
+      keyQuestions: [
+        'Are hearing induction loop systems active in Main Hall?',
+        'Where are accessible parking stalls located?',
+      ],
       deadline: '6 Months Out',
-      notes: 'Permits approved by city council'
+      notes: 'Permits approved by city council',
     },
     {
       id: 'vc-2',
@@ -451,36 +822,66 @@ export const SAMPLE_COMMUNITY: EventPlan = {
       emailPhone: 'contact@universalaccess.org · (555) 991-3321',
       status: 'Booked',
       estimatedCost: 8000,
-      keyQuestions: ['Will CART text be projected on both 150in screens simultaneously?', 'Can you support dual language stream?'],
+      keyQuestions: [
+        'Will CART text be projected on both 150in screens simultaneously?',
+        'Can you support dual language stream?',
+      ],
       deadline: '4 Months Out',
-      notes: 'Includes dual steno captioners and ASL stage video feed'
-    }
+      notes: 'Includes dual steno captioners and ASL stage video feed',
+    },
   ],
   timelineMilestones: [
-    { id: 'tm-c1', time: '11:00', title: 'Community Gates Open & Artisan Market', details: 'Visual maps distributed; food trucks active', cueType: 'visual' },
-    { id: 'tm-c2', time: '12:30', title: 'Opening Civic Ceremony & Keynote', details: 'Dual CART captioning + ASL/CDI team on stage', cueType: 'interpreter', interpreterRotation: true },
-    { id: 'tm-c3', time: '14:00', title: 'Cultural Dance & Visual Music Showcase', details: 'Sensory sound-to-light floor engaged; rhythm visualizer active', cueType: 'haptic' },
-    { id: 'tm-c4', time: '16:00', title: 'Community Awards & Closing Remarks', details: 'Visual applause and certificate presentations', cueType: 'milestone' }
+    {
+      id: 'tm-c1',
+      time: '11:00',
+      title: 'Community Gates Open & Artisan Market',
+      details: 'Visual maps distributed; food trucks active',
+      cueType: 'visual',
+    },
+    {
+      id: 'tm-c2',
+      time: '12:30',
+      title: 'Opening Civic Ceremony & Keynote',
+      details: 'Dual CART captioning + ASL/CDI team on stage',
+      cueType: 'interpreter',
+      interpreterRotation: true,
+    },
+    {
+      id: 'tm-c3',
+      time: '14:00',
+      title: 'Cultural Dance & Visual Music Showcase',
+      details: 'Sensory sound-to-light floor engaged; rhythm visualizer active',
+      cueType: 'haptic',
+    },
+    {
+      id: 'tm-c4',
+      time: '16:00',
+      title: 'Community Awards & Closing Remarks',
+      details: 'Visual applause and certificate presentations',
+      cueType: 'milestone',
+    },
   ],
   personalizedIdeas: [
     {
       id: 'ic-1',
       category: 'Inclusive Touch',
       title: 'Bilingual Video Storytelling Kiosks',
-      description: 'Interactive iPad stands with short videos of community elders sharing local history in both spoken English and Sign Language with captions.',
+      description:
+        'Interactive iPad stands with short videos of community elders sharing local history in both spoken English and Sign Language with captions.',
       budgetImpact: 'Low',
       implementationTip: 'Use community volunteer youth to record elder stories.',
-      isSaved: true
+      isSaved: true,
     },
     {
       id: 'ic-2',
       category: 'Interactive Experience',
       title: 'Communal Canvas Tapestry Mural',
-      description: 'A large fabric banner where every attendee adds a handprint, signed greeting, or sketch symbolizing shared belonging.',
+      description:
+        'A large fabric banner where every attendee adds a handprint, signed greeting, or sketch symbolizing shared belonging.',
       budgetImpact: 'Low',
       implementationTip: 'Supply non-toxic fabric paints and wet wipes.',
-      isSaved: true
-    }
+      isSaved: true,
+    },
   ],
   sensoryAndVisualCues: [
     {
@@ -488,13 +889,17 @@ export const SAMPLE_COMMUNITY: EventPlan = {
       trigger: 'Keynote Commencement',
       visualCue: 'Overhead house lights dim to 50% as stage spotlights flare',
       hapticCue: 'Auditorium perimeter bench pulse',
-      captionMode: 'Dual 150" projection screens with yellow on black high contrast CART'
-    }
+      captionMode: 'Dual 150" projection screens with yellow on black high contrast CART',
+    },
   ],
   readinessChecklist: [
-    { item: 'Induction Hearing Loop Testing', status: 'Verified', detail: 'Loop system calibrated for telecoil hearing aids throughout hall' },
-    { item: 'Pro-Tactile Guide Briefing', status: 'Ready', detail: 'Guides assigned to DeafBlind community guests' }
-  ]
+    {
+      item: 'Induction Hearing Loop Testing',
+      status: 'Verified',
+      detail: 'Loop system calibrated for telecoil hearing aids throughout hall',
+    },
+    { item: 'Pro-Tactile Guide Briefing', status: 'Ready', detail: 'Guides assigned to DeafBlind community guests' },
+  ],
 };
 
 export const INITIAL_BLUEPRINT = SAMPLE_WEDDING;
@@ -509,8 +914,13 @@ export const ASL_VOCABULARY: AslSignItem[] = [
     nonManual: 'Warm welcoming smile, gentle forward head tilt',
     keyframes: [
       { leftHand: { x: 30, y: 55, open: true }, rightHand: { x: 70, y: 55, open: true }, headTilt: 2, brows: 'raised' },
-      { leftHand: { x: 42, y: 65, open: true }, rightHand: { x: 58, y: 65, open: true }, headTilt: -2, brows: 'neutral' }
-    ]
+      {
+        leftHand: { x: 42, y: 65, open: true },
+        rightHand: { x: 58, y: 65, open: true },
+        headTilt: -2,
+        brows: 'neutral',
+      },
+    ],
   },
   {
     gloss: 'CONGRATULATIONS',
@@ -522,8 +932,13 @@ export const ASL_VOCABULARY: AslSignItem[] = [
     keyframes: [
       { leftHand: { x: 25, y: 28, open: true }, rightHand: { x: 75, y: 28, open: true }, headTilt: 0, brows: 'raised' },
       { leftHand: { x: 22, y: 32, open: true }, rightHand: { x: 78, y: 32, open: true }, headTilt: 4, brows: 'raised' },
-      { leftHand: { x: 28, y: 28, open: true }, rightHand: { x: 72, y: 28, open: true }, headTilt: -4, brows: 'raised' }
-    ]
+      {
+        leftHand: { x: 28, y: 28, open: true },
+        rightHand: { x: 72, y: 28, open: true },
+        headTilt: -4,
+        brows: 'raised',
+      },
+    ],
   },
   {
     gloss: 'LOVE',
@@ -533,9 +948,19 @@ export const ASL_VOCABULARY: AslSignItem[] = [
     movement: 'Both arms cross at chest and press gently toward heart',
     nonManual: 'Soft sincere expression, gentle head bow',
     keyframes: [
-      { leftHand: { x: 44, y: 48, open: false }, rightHand: { x: 56, y: 48, open: false }, headTilt: 5, brows: 'neutral' },
-      { leftHand: { x: 46, y: 46, open: false }, rightHand: { x: 54, y: 46, open: false }, headTilt: 2, brows: 'neutral' }
-    ]
+      {
+        leftHand: { x: 44, y: 48, open: false },
+        rightHand: { x: 56, y: 48, open: false },
+        headTilt: 5,
+        brows: 'neutral',
+      },
+      {
+        leftHand: { x: 46, y: 46, open: false },
+        rightHand: { x: 54, y: 46, open: false },
+        headTilt: 2,
+        brows: 'neutral',
+      },
+    ],
   },
   {
     gloss: 'CELEBRATE',
@@ -545,9 +970,19 @@ export const ASL_VOCABULARY: AslSignItem[] = [
     movement: 'Both hands twirl simultaneously in joyful upward arcs near temples',
     nonManual: 'Festive animated facial expression with wide open eyes',
     keyframes: [
-      { leftHand: { x: 28, y: 34, open: false }, rightHand: { x: 72, y: 34, open: false }, headTilt: -3, brows: 'raised' },
-      { leftHand: { x: 34, y: 28, open: false }, rightHand: { x: 66, y: 28, open: false }, headTilt: 3, brows: 'raised' }
-    ]
+      {
+        leftHand: { x: 28, y: 34, open: false },
+        rightHand: { x: 72, y: 34, open: false },
+        headTilt: -3,
+        brows: 'raised',
+      },
+      {
+        leftHand: { x: 34, y: 28, open: false },
+        rightHand: { x: 66, y: 28, open: false },
+        headTilt: 3,
+        brows: 'raised',
+      },
+    ],
   },
   {
     gloss: 'THANK-YOU',
@@ -557,9 +992,19 @@ export const ASL_VOCABULARY: AslSignItem[] = [
     movement: 'Hand sweeps outward and downward toward the guests in an open gesture',
     nonManual: 'Warm heartfelt eye contact, appreciative nod',
     keyframes: [
-      { leftHand: { x: 35, y: 70, open: false }, rightHand: { x: 50, y: 42, open: true }, headTilt: 0, brows: 'neutral' },
-      { leftHand: { x: 35, y: 70, open: false }, rightHand: { x: 55, y: 60, open: true }, headTilt: 5, brows: 'neutral' }
-    ]
+      {
+        leftHand: { x: 35, y: 70, open: false },
+        rightHand: { x: 50, y: 42, open: true },
+        headTilt: 0,
+        brows: 'neutral',
+      },
+      {
+        leftHand: { x: 35, y: 70, open: false },
+        rightHand: { x: 55, y: 60, open: true },
+        headTilt: 5,
+        brows: 'neutral',
+      },
+    ],
   },
   {
     gloss: 'DINNER-READY',
@@ -569,9 +1014,14 @@ export const ASL_VOCABULARY: AslSignItem[] = [
     movement: 'Right hand touches lips (EAT) then both hands indicate banquet tables',
     nonManual: 'Clear instructional gaze, affirmative nod',
     keyframes: [
-      { leftHand: { x: 35, y: 70, open: true }, rightHand: { x: 50, y: 40, open: false }, headTilt: 0, brows: 'neutral' },
-      { leftHand: { x: 30, y: 65, open: true }, rightHand: { x: 70, y: 65, open: true }, headTilt: 3, brows: 'raised' }
-    ]
+      {
+        leftHand: { x: 35, y: 70, open: true },
+        rightHand: { x: 50, y: 40, open: false },
+        headTilt: 0,
+        brows: 'neutral',
+      },
+      { leftHand: { x: 30, y: 65, open: true }, rightHand: { x: 70, y: 65, open: true }, headTilt: 3, brows: 'raised' },
+    ],
   },
   {
     gloss: 'TOAST-CHEERS',
@@ -581,9 +1031,19 @@ export const ASL_VOCABULARY: AslSignItem[] = [
     movement: 'Hand raises up and makes gentle clinking gesture outward toward crowd',
     nonManual: 'Warm celebratory smile, eye contact across the whole room',
     keyframes: [
-      { leftHand: { x: 35, y: 70, open: true }, rightHand: { x: 65, y: 30, open: false }, headTilt: 3, brows: 'raised' },
-      { leftHand: { x: 35, y: 70, open: true }, rightHand: { x: 60, y: 35, open: false }, headTilt: 0, brows: 'neutral' }
-    ]
+      {
+        leftHand: { x: 35, y: 70, open: true },
+        rightHand: { x: 65, y: 30, open: false },
+        headTilt: 3,
+        brows: 'raised',
+      },
+      {
+        leftHand: { x: 35, y: 70, open: true },
+        rightHand: { x: 60, y: 35, open: false },
+        headTilt: 0,
+        brows: 'neutral',
+      },
+    ],
   },
   {
     gloss: 'ATTENTION-ALL',
@@ -594,18 +1054,95 @@ export const ASL_VOCABULARY: AslSignItem[] = [
     nonManual: 'Raised eyebrows, alert sweeping gaze',
     keyframes: [
       { leftHand: { x: 25, y: 25, open: true }, rightHand: { x: 75, y: 25, open: true }, headTilt: 0, brows: 'raised' },
-      { leftHand: { x: 22, y: 28, open: true }, rightHand: { x: 78, y: 28, open: true }, headTilt: -2, brows: 'raised' }
-    ]
-  }
+      {
+        leftHand: { x: 22, y: 28, open: true },
+        rightHand: { x: 78, y: 28, open: true },
+        headTilt: -2,
+        brows: 'raised',
+      },
+    ],
+  },
 ];
 
 export const INITIAL_TABLES: SightlineTable[] = [
-  { id: 'tbl-1', name: 'Table 1 (VIP / Deaf Family)', x: 190, y: 150, shape: 'crescent', seats: 8, centerpieceHeightInches: 7, dhhGuestCount: 8 },
-  { id: 'tbl-2', name: 'Table 2 (Couple & Wedding Party)', x: 380, y: 120, shape: 'u-shape', seats: 10, centerpieceHeightInches: 6, dhhGuestCount: 6 },
-  { id: 'tbl-3', name: 'Table 3 (Extended Family)', x: 570, y: 150, shape: 'crescent', seats: 8, centerpieceHeightInches: 8, dhhGuestCount: 4 },
-  { id: 'tbl-4', name: 'Table 4 (College Friends)', x: 130, y: 270, shape: 'radial', seats: 8, centerpieceHeightInches: 7.5, dhhGuestCount: 5 },
-  { id: 'tbl-5', name: 'Table 5 (Community Allies)', x: 380, y: 280, shape: 'crescent', seats: 8, centerpieceHeightInches: 8, dhhGuestCount: 3 },
-  { id: 'tbl-6', name: 'Table 6 (Guest Table East)', x: 630, y: 270, shape: 'radial', seats: 8, centerpieceHeightInches: 12, dhhGuestCount: 2 },
-  { id: 'tbl-7', name: 'Table 7 (Youth & Co-workers)', x: 240, y: 390, shape: 'radial', seats: 8, centerpieceHeightInches: 7, dhhGuestCount: 4 },
-  { id: 'tbl-8', name: 'Table 8 (Evening Guests)', x: 520, y: 390, shape: 'radial', seats: 8, centerpieceHeightInches: 8, dhhGuestCount: 2 }
+  {
+    id: 'tbl-1',
+    name: 'Table 1 (VIP / Deaf Family)',
+    x: 190,
+    y: 150,
+    shape: 'crescent',
+    seats: 8,
+    centerpieceHeightInches: 7,
+    dhhGuestCount: 8,
+  },
+  {
+    id: 'tbl-2',
+    name: 'Table 2 (Couple & Wedding Party)',
+    x: 380,
+    y: 120,
+    shape: 'u-shape',
+    seats: 10,
+    centerpieceHeightInches: 6,
+    dhhGuestCount: 6,
+  },
+  {
+    id: 'tbl-3',
+    name: 'Table 3 (Extended Family)',
+    x: 570,
+    y: 150,
+    shape: 'crescent',
+    seats: 8,
+    centerpieceHeightInches: 8,
+    dhhGuestCount: 4,
+  },
+  {
+    id: 'tbl-4',
+    name: 'Table 4 (College Friends)',
+    x: 130,
+    y: 270,
+    shape: 'radial',
+    seats: 8,
+    centerpieceHeightInches: 7.5,
+    dhhGuestCount: 5,
+  },
+  {
+    id: 'tbl-5',
+    name: 'Table 5 (Community Allies)',
+    x: 380,
+    y: 280,
+    shape: 'crescent',
+    seats: 8,
+    centerpieceHeightInches: 8,
+    dhhGuestCount: 3,
+  },
+  {
+    id: 'tbl-6',
+    name: 'Table 6 (Guest Table East)',
+    x: 630,
+    y: 270,
+    shape: 'radial',
+    seats: 8,
+    centerpieceHeightInches: 12,
+    dhhGuestCount: 2,
+  },
+  {
+    id: 'tbl-7',
+    name: 'Table 7 (Youth & Co-workers)',
+    x: 240,
+    y: 390,
+    shape: 'radial',
+    seats: 8,
+    centerpieceHeightInches: 7,
+    dhhGuestCount: 4,
+  },
+  {
+    id: 'tbl-8',
+    name: 'Table 8 (Evening Guests)',
+    x: 520,
+    y: 390,
+    shape: 'radial',
+    seats: 8,
+    centerpieceHeightInches: 8,
+    dhhGuestCount: 2,
+  },
 ];

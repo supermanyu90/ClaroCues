@@ -18,7 +18,8 @@ const MAX_ITEMS = 40;
 
 const asRecord = (v: unknown): Raw => (v && typeof v === 'object' && !Array.isArray(v) ? (v as Raw) : {});
 const asList = (v: unknown): Raw[] => (Array.isArray(v) ? v.slice(0, MAX_ITEMS).map(asRecord) : []);
-const str = (v: unknown, fallback = ''): string => (typeof v === 'string' && v.trim() ? v.trim().slice(0, 1000) : fallback);
+const str = (v: unknown, fallback = ''): string =>
+  typeof v === 'string' && v.trim() ? v.trim().slice(0, 1000) : fallback;
 const num = (v: unknown, fallback = 0): number => {
   const n = typeof v === 'number' ? v : Number.parseFloat(String(v));
   return Number.isFinite(n) && n >= 0 ? n : fallback;
@@ -71,7 +72,11 @@ export interface PlanRequest {
 }
 
 /** Converts a raw /api/gemini/plan-event response into a complete, well-typed EventPlan. */
-export function normalizeGeneratedPlan(data: unknown, request: PlanRequest, idSeed: string = String(Date.now())): EventPlan {
+export function normalizeGeneratedPlan(
+  data: unknown,
+  request: PlanRequest,
+  idSeed: string = crypto.randomUUID()
+): EventPlan {
   const d = asRecord(data);
   const seating = asRecord(d.sightlineAndSeating);
   const staffing = asRecord(d.interpreterStaffing);
@@ -111,7 +116,10 @@ export function normalizeGeneratedPlan(data: unknown, request: PlanRequest, idSe
       emailPhone: str(v.emailPhone),
       status: oneOf(v.status, VENDOR_STATUSES, 'To Research'),
       estimatedCost: Math.round(num(v.estimatedCost)),
-      keyQuestions: (Array.isArray(v.keyQuestions) ? v.keyQuestions : []).map((q) => str(q)).filter(Boolean).slice(0, 10),
+      keyQuestions: (Array.isArray(v.keyQuestions) ? v.keyQuestions : [])
+        .map((q) => str(q))
+        .filter(Boolean)
+        .slice(0, 10),
       deadline: str(v.deadline, 'TBD'),
       notes: str(v.notes),
     }));

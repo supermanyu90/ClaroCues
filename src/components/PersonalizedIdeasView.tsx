@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { PersonalizedIdea, EventPlan } from '../types';
-import type { ResponseSource } from '../shared/api';
-import { errorMessage, postJson } from '../utils/api';
+import { useState, type FormEvent } from 'react';
+import { type PersonalizedIdea, type EventPlan } from '../types';
+import { generateIdeas } from '../services/apiClient';
+import { errorMessage } from '../utils/api';
 import { normalizeIdeas } from '../utils/planNormalizer';
 import { ErrorNotice } from './ui/SourceBadge';
+import { createId } from '../utils/id';
 
 interface PersonalizedIdeasViewProps {
   ideas: PersonalizedIdea[];
@@ -11,11 +12,7 @@ interface PersonalizedIdeasViewProps {
   onUpdateIdeas: (ideas: PersonalizedIdea[]) => void;
 }
 
-export const PersonalizedIdeasView: React.FC<PersonalizedIdeasViewProps> = ({
-  ideas,
-  currentPlan,
-  onUpdateIdeas,
-}) => {
+export const PersonalizedIdeasView = ({ ideas, currentPlan, onUpdateIdeas }: PersonalizedIdeasViewProps) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [customVibe, setCustomVibe] = useState<string>('');
   const [isBrainstorming, setIsBrainstorming] = useState<boolean>(false);
@@ -31,31 +28,27 @@ export const PersonalizedIdeasView: React.FC<PersonalizedIdeasViewProps> = ({
     'Inclusive Touch',
   ];
 
-  const filteredIdeas = ideas.filter(
-    (idea) => selectedCategory === 'all' || idea.category === selectedCategory
-  );
+  const filteredIdeas = ideas.filter((idea) => selectedCategory === 'all' || idea.category === selectedCategory);
 
   const toggleSaveIdea = (id: string) => {
-    const next = ideas.map((item) =>
-      item.id === id ? { ...item, isSaved: !item.isSaved } : item
-    );
+    const next = ideas.map((item) => (item.id === id ? { ...item, isSaved: !item.isSaved } : item));
     onUpdateIdeas(next);
   };
 
-  const handleBrainstorm = async (e: React.FormEvent) => {
+  const handleBrainstorm = async (e: FormEvent) => {
     e.preventDefault();
     if (!customVibe.trim() || isBrainstorming) return;
 
     setIsBrainstorming(true);
     setError(null);
     try {
-      const data = await postJson<{ ideas: unknown; source: ResponseSource }>('/api/gemini/ideas', {
+      const data = await generateIdeas({
         eventType: currentPlan.eventType,
         vibe: customVibe,
         guestCount: currentPlan.guestCount,
         budget: currentPlan.totalBudget,
       });
-      const newIdeas = normalizeIdeas(data.ideas, `idea-${Date.now()}`).map((i) => ({ ...i, isSaved: true }));
+      const newIdeas = normalizeIdeas(data.ideas, createId('idea')).map((i) => ({ ...i, isSaved: true }));
       onUpdateIdeas([...newIdeas, ...ideas]);
       setNotification(
         data.source === 'gemini'
@@ -87,7 +80,9 @@ export const PersonalizedIdeasView: React.FC<PersonalizedIdeasViewProps> = ({
             Personalized Event Ideas & Inspiration Generator
           </h2>
           <p className="text-sm text-slate-300 leading-relaxed">
-            Curated concepts tailored specifically for weddings, birthdays, and community gatherings. From sensory-friendly lighting and interactive food stations to high-contrast palettes and memorable guest experiences.
+            Curated concepts tailored specifically for weddings, birthdays, and community gatherings. From
+            sensory-friendly lighting and interactive food stations to high-contrast palettes and memorable guest
+            experiences.
           </p>
         </div>
 
@@ -101,14 +96,9 @@ export const PersonalizedIdeasView: React.FC<PersonalizedIdeasViewProps> = ({
       </div>
 
       {/* AI Brainstorm Custom Vibe Form */}
-      <form
-        onSubmit={handleBrainstorm}
-        className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-3"
-      >
+      <form onSubmit={handleBrainstorm} className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-3">
         <div className="flex items-center justify-between">
-          <div className="text-xs font-semibold text-white">
-            Brainstorm Custom Ideas with Gemini 2.5 Flash
-          </div>
+          <div className="text-xs font-semibold text-white">Brainstorm Custom Ideas with Gemini 2.5 Flash</div>
           <div className="text-[11px] text-slate-400">
             Current Plan: <span className="text-teal-400">{currentPlan.eventType}</span>
           </div>
@@ -145,9 +135,7 @@ export const PersonalizedIdeasView: React.FC<PersonalizedIdeasViewProps> = ({
 
       {/* Filter Tabs */}
       <div className="flex items-center justify-between flex-wrap gap-4">
-        <div className="text-xs font-semibold text-slate-300">
-          Showing {filteredIdeas.length} Creative Concepts
-        </div>
+        <div className="text-xs font-semibold text-slate-300">Showing {filteredIdeas.length} Creative Concepts</div>
 
         <div className="flex items-center gap-1 p-1 bg-slate-950 border border-slate-800 rounded-lg text-xs overflow-x-auto max-w-full">
           {categories.map((cat) => (
@@ -184,9 +172,7 @@ export const PersonalizedIdeasView: React.FC<PersonalizedIdeasViewProps> = ({
                     <span className="text-[11px] font-mono text-teal-400 uppercase tracking-wider">
                       {idea.category}
                     </span>
-                    <h3 className="text-base font-bold text-white tracking-tight">
-                      {idea.title}
-                    </h3>
+                    <h3 className="text-base font-bold text-white tracking-tight">{idea.title}</h3>
                   </div>
 
                   <span
@@ -194,17 +180,15 @@ export const PersonalizedIdeasView: React.FC<PersonalizedIdeasViewProps> = ({
                       idea.budgetImpact === 'Low'
                         ? 'text-emerald-400 bg-emerald-950/50 border-emerald-500/30'
                         : idea.budgetImpact === 'Medium'
-                        ? 'text-amber-400 bg-amber-950/50 border-amber-500/30'
-                        : 'text-rose-400 bg-rose-950/50 border-rose-500/30'
+                          ? 'text-amber-400 bg-amber-950/50 border-amber-500/30'
+                          : 'text-rose-400 bg-rose-950/50 border-rose-500/30'
                     }`}
                   >
                     {idea.budgetImpact} Impact
                   </span>
                 </div>
 
-                <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-                  {idea.description}
-                </p>
+                <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">{idea.description}</p>
               </div>
 
               <div className="space-y-3 pt-2 border-t border-slate-800/80">

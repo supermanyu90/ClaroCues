@@ -1,15 +1,13 @@
-import React, { useState } from 'react';
-import { VendorItem } from '../types';
+import { useState, type FormEvent } from 'react';
+import { type VendorItem } from '../types';
+import { createId } from '../utils/id';
 
 interface VendorChecklistProps {
   vendors: VendorItem[];
   onUpdateVendors: (vendors: VendorItem[]) => void;
 }
 
-export const VendorChecklist: React.FC<VendorChecklistProps> = ({
-  vendors,
-  onUpdateVendors,
-}) => {
+export const VendorChecklist = ({ vendors, onUpdateVendors }: VendorChecklistProps) => {
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [isAddingVendor, setIsAddingVendor] = useState<boolean>(false);
@@ -35,13 +33,7 @@ export const VendorChecklist: React.FC<VendorChecklistProps> = ({
     'Planning & Officiant',
   ];
 
-  const statuses: VendorItem['status'][] = [
-    'To Research',
-    'Contacted',
-    'Proposal Received',
-    'Booked',
-    'Paid',
-  ];
+  const statuses: VendorItem['status'][] = ['To Research', 'Contacted', 'Proposal Received', 'Booked', 'Paid'];
 
   const totalCommitted = vendors
     .filter((v) => v.status === 'Booked' || v.status === 'Paid')
@@ -60,12 +52,12 @@ export const VendorChecklist: React.FC<VendorChecklistProps> = ({
     onUpdateVendors(next);
   };
 
-  const handleAddVendor = (e: React.FormEvent) => {
+  const handleAddVendor = (e: FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
 
     const newV: VendorItem = {
-      id: `v-${Date.now()}`,
+      id: createId('v'),
       category,
       name: name.trim(),
       contact: contact.trim() || 'Lead Representative',
@@ -105,11 +97,10 @@ export const VendorChecklist: React.FC<VendorChecklistProps> = ({
             <span aria-hidden="true">·</span>
             <span>Industry Evaluation Questions</span>
           </div>
-          <h2 className="text-xl font-bold text-white tracking-tight">
-            Vendor Checklist & Procurement Manager
-          </h2>
+          <h2 className="text-xl font-bold text-white tracking-tight">Vendor Checklist & Procurement Manager</h2>
           <p className="text-sm text-slate-300 leading-relaxed">
-            Manage negotiations, review crucial evaluation questions to ask each vendor before signing, track deposit statuses, and keep all partner contacts in one centralized directory.
+            Manage negotiations, review crucial evaluation questions to ask each vendor before signing, track deposit
+            statuses, and keep all partner contacts in one centralized directory.
           </p>
         </div>
 
@@ -125,10 +116,10 @@ export const VendorChecklist: React.FC<VendorChecklistProps> = ({
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-1">
           <div className="text-xs text-slate-400">Total Partners Tracked</div>
-          <div className="text-2xl font-bold text-white font-mono tabular-nums">
-            {vendors.length} Vendors
+          <div className="text-2xl font-bold text-white font-mono tabular-nums">{vendors.length} Vendors</div>
+          <div className="text-[11px] text-slate-400">
+            Across {new Set(vendors.map((v) => v.category)).size} categories
           </div>
-          <div className="text-[11px] text-slate-400">Across {new Set(vendors.map(v => v.category)).size} categories</div>
         </div>
 
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-1">
@@ -137,7 +128,10 @@ export const VendorChecklist: React.FC<VendorChecklistProps> = ({
             {vendors.filter((v) => v.status === 'Booked' || v.status === 'Paid').length} Confirmed
           </div>
           <div className="text-[11px] text-slate-400 font-mono">
-            {Math.round((vendors.filter((v) => v.status === 'Booked' || v.status === 'Paid').length / (vendors.length || 1)) * 100)}% pipeline completion
+            {Math.round(
+              (vendors.filter((v) => v.status === 'Booked' || v.status === 'Paid').length / (vendors.length || 1)) * 100
+            )}
+            % pipeline completion
           </div>
         </div>
 
@@ -177,7 +171,9 @@ export const VendorChecklist: React.FC<VendorChecklistProps> = ({
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
             <div className="space-y-1">
-              <label htmlFor="vendor-vendor-company-name" className="text-slate-300">Vendor / Company Name</label>
+              <label htmlFor="vendor-vendor-company-name" className="text-slate-300">
+                Vendor / Company Name
+              </label>
               <input
                 id="vendor-vendor-company-name"
                 type="text"
@@ -190,21 +186,29 @@ export const VendorChecklist: React.FC<VendorChecklistProps> = ({
             </div>
 
             <div className="space-y-1">
-              <label htmlFor="vendor-category" className="text-slate-300">Category</label>
+              <label htmlFor="vendor-category" className="text-slate-300">
+                Category
+              </label>
               <select
                 id="vendor-category"
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
                 className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-slate-100 focus:outline-none focus:border-teal-500"
               >
-                {categories.filter((c) => c !== 'all').map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
+                {categories
+                  .filter((c) => c !== 'all')
+                  .map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
               </select>
             </div>
 
             <div className="space-y-1">
-              <label htmlFor="vendor-estimated-cost" className="text-slate-300">Estimated Cost ($)</label>
+              <label htmlFor="vendor-estimated-cost" className="text-slate-300">
+                Estimated Cost ($)
+              </label>
               <input
                 id="vendor-estimated-cost"
                 type="number"
@@ -217,7 +221,9 @@ export const VendorChecklist: React.FC<VendorChecklistProps> = ({
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
             <div className="space-y-1">
-              <label htmlFor="vendor-lead-contact-person" className="text-slate-300">Lead Contact Person</label>
+              <label htmlFor="vendor-lead-contact-person" className="text-slate-300">
+                Lead Contact Person
+              </label>
               <input
                 id="vendor-lead-contact-person"
                 type="text"
@@ -229,7 +235,9 @@ export const VendorChecklist: React.FC<VendorChecklistProps> = ({
             </div>
 
             <div className="space-y-1">
-              <label htmlFor="vendor-email-phone" className="text-slate-300">Email & Phone</label>
+              <label htmlFor="vendor-email-phone" className="text-slate-300">
+                Email & Phone
+              </label>
               <input
                 id="vendor-email-phone"
                 type="text"
@@ -241,7 +249,9 @@ export const VendorChecklist: React.FC<VendorChecklistProps> = ({
             </div>
 
             <div className="space-y-1">
-              <label htmlFor="vendor-decision-deadline" className="text-slate-300">Decision Deadline</label>
+              <label htmlFor="vendor-decision-deadline" className="text-slate-300">
+                Decision Deadline
+              </label>
               <input
                 id="vendor-decision-deadline"
                 type="text"
@@ -254,7 +264,9 @@ export const VendorChecklist: React.FC<VendorChecklistProps> = ({
           </div>
 
           <div className="space-y-1 text-xs">
-            <label htmlFor="vendor-notes-special-requirements" className="text-slate-300">Notes & Special Requirements</label>
+            <label htmlFor="vendor-notes-special-requirements" className="text-slate-300">
+              Notes & Special Requirements
+            </label>
             <input
               id="vendor-notes-special-requirements"
               type="text"
@@ -285,9 +297,7 @@ export const VendorChecklist: React.FC<VendorChecklistProps> = ({
               key={cat}
               onClick={() => setFilterCategory(cat)}
               className={`px-3 py-1 font-medium capitalize rounded transition-colors whitespace-nowrap cursor-pointer ${
-                filterCategory === cat
-                  ? 'bg-slate-800 text-teal-300 shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200'
+                filterCategory === cat ? 'bg-slate-800 text-teal-300 shadow-sm' : 'text-slate-400 hover:text-slate-200'
               }`}
             >
               {cat === 'all' ? 'All Categories' : cat}
@@ -302,9 +312,7 @@ export const VendorChecklist: React.FC<VendorChecklistProps> = ({
               key={st}
               onClick={() => setFilterStatus(st)}
               className={`px-2.5 py-1 font-medium rounded transition-colors whitespace-nowrap cursor-pointer ${
-                filterStatus === st
-                  ? 'bg-slate-800 text-teal-300 shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200'
+                filterStatus === st ? 'bg-slate-800 text-teal-300 shadow-sm' : 'text-slate-400 hover:text-slate-200'
               }`}
             >
               {st}
@@ -329,9 +337,7 @@ export const VendorChecklist: React.FC<VendorChecklistProps> = ({
                     <span aria-hidden="true">·</span>
                     <span>Deadline: {vendor.deadline}</span>
                   </div>
-                  <h3 className="text-base font-bold text-white tracking-tight">
-                    {vendor.name}
-                  </h3>
+                  <h3 className="text-base font-bold text-white tracking-tight">{vendor.name}</h3>
                   <div className="text-xs text-slate-300">
                     Contact: <span className="text-white">{vendor.contact}</span> ({vendor.emailPhone})
                   </div>
@@ -354,10 +360,10 @@ export const VendorChecklist: React.FC<VendorChecklistProps> = ({
                       vendor.status === 'Booked' || vendor.status === 'Paid'
                         ? 'bg-emerald-950/60 border-emerald-500/50 text-emerald-300'
                         : vendor.status === 'Proposal Received'
-                        ? 'bg-sky-950/60 border-sky-500/50 text-sky-300'
-                        : vendor.status === 'Contacted'
-                        ? 'bg-amber-950/60 border-amber-500/50 text-amber-300'
-                        : 'bg-slate-950 border-slate-700 text-slate-300'
+                          ? 'bg-sky-950/60 border-sky-500/50 text-sky-300'
+                          : vendor.status === 'Contacted'
+                            ? 'bg-amber-950/60 border-amber-500/50 text-amber-300'
+                            : 'bg-slate-950 border-slate-700 text-slate-300'
                     }`}
                   >
                     {statuses.map((st) => (
@@ -384,7 +390,9 @@ export const VendorChecklist: React.FC<VendorChecklistProps> = ({
                   aria-expanded={isExpanded}
                   className="text-xs font-medium text-teal-400 hover:text-teal-300 cursor-pointer flex items-center gap-1"
                 >
-                  {isExpanded ? 'Hide Key Questions to Ask' : `View Key Questions to Ask (${vendor.keyQuestions.length})`}
+                  {isExpanded
+                    ? 'Hide Key Questions to Ask'
+                    : `View Key Questions to Ask (${vendor.keyQuestions.length})`}
                 </button>
 
                 <button
@@ -398,12 +406,12 @@ export const VendorChecklist: React.FC<VendorChecklistProps> = ({
 
               {isExpanded && (
                 <div className="bg-slate-950 border border-slate-800 rounded-lg p-4 space-y-2 text-xs animate-in fade-in">
-                  <div className="font-semibold text-slate-200">
-                    Crucial Questions to Ask {vendor.name}:
-                  </div>
+                  <div className="font-semibold text-slate-200">Crucial Questions to Ask {vendor.name}:</div>
                   <ul className="space-y-1.5 text-slate-300 list-disc list-inside">
                     {vendor.keyQuestions.map((q, idx) => (
-                      <li key={idx} className="leading-relaxed">{q}</li>
+                      <li key={idx} className="leading-relaxed">
+                        {q}
+                      </li>
                     ))}
                   </ul>
                 </div>

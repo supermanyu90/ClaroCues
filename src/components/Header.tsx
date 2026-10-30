@@ -1,5 +1,3 @@
-import React from 'react';
-
 export type NavTab = 'assistant' | 'ideas' | 'budget' | 'timeline' | 'vendors' | 'venues' | 'accessibility';
 
 interface HeaderProps {
@@ -8,7 +6,7 @@ interface HeaderProps {
   onOpenLiveVoiceModal: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onGoHome, onOpenGenerateModal, onOpenLiveVoiceModal }) => {
+export const Header = ({ onGoHome, onOpenGenerateModal, onOpenLiveVoiceModal }: HeaderProps) => {
   return (
     <header className="sticky top-0 z-40 bg-slate-950/90 backdrop-blur-md border-b border-slate-800/80 px-4 sm:px-6 py-3.5">
       <a

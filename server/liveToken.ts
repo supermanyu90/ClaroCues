@@ -32,11 +32,20 @@ export function buildLiveConnectConfig(context: LiveEventContext): LiveConnectCo
   };
 }
 
-export function createLiveTokenIssuer(apiKey: string | null, model: string, now: () => number = Date.now): LiveTokenIssuer | null {
-  if (!apiKey) return null;
-  // Ephemeral tokens are only available on the v1alpha API surface.
-  const client = new GoogleGenAI({ apiKey, httpOptions: { apiVersion: 'v1alpha' } });
+/** The slice of the Gemini SDK used to mint tokens (a v1alpha GoogleGenAI client in production). */
+export type AuthTokenClient = Pick<GoogleGenAI, 'authTokens'>;
 
+/** Ephemeral tokens are only available on the v1alpha API surface. */
+export function createAuthTokenClient(apiKey: string | null): AuthTokenClient | null {
+  return apiKey ? new GoogleGenAI({ apiKey, httpOptions: { apiVersion: 'v1alpha' } }) : null;
+}
+
+export function createLiveTokenIssuer(
+  client: AuthTokenClient | null,
+  model: string,
+  now: () => number = Date.now
+): LiveTokenIssuer | null {
+  if (!client) return null;
   return {
     async issue(context) {
       const start = now();

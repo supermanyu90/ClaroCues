@@ -84,7 +84,9 @@ describe('input validation', () => {
   });
 
   it('rejects oversized bodies on small endpoints', async () => {
-    const res = await request(app).post('/api/gemini/ideas').send({ vibe: 'x'.repeat(200_000) });
+    const res = await request(app)
+      .post('/api/gemini/ideas')
+      .send({ vibe: 'x'.repeat(200_000) });
     expect(res.status).toBe(413);
   });
 
@@ -109,9 +111,11 @@ describe('with Gemini', () => {
   });
 
   it('falls back when the upstream call throws', async () => {
-    const res = await request(createApp({ config, ai: failingAi })).post('/api/gemini/assistant-chat').send({
-      messages: [{ sender: 'user', content: 'hi' }],
-    });
+    const res = await request(createApp({ config, ai: failingAi }))
+      .post('/api/gemini/assistant-chat')
+      .send({
+        messages: [{ sender: 'user', content: 'hi' }],
+      });
     expect(res.body.source).toBe('fallback');
   });
 
@@ -159,13 +163,19 @@ describe('with Gemini', () => {
   });
 
   it('clamps sign-recognition confidence into [0, 1]', async () => {
-    const { ai } = fakeAi('{"gloss":"THANK-YOU","english":"thank you","confidence":7,"handsVisible":true,"notes":"flat hand"}');
-    const res = await request(createApp({ config, ai })).post('/api/gemini/recognize-sign').send({ imageBase64: 'AAAA' });
+    const { ai } = fakeAi(
+      '{"gloss":"THANK-YOU","english":"thank you","confidence":7,"handsVisible":true,"notes":"flat hand"}'
+    );
+    const res = await request(createApp({ config, ai }))
+      .post('/api/gemini/recognize-sign')
+      .send({ imageBase64: 'AAAA' });
     expect(res.body).toMatchObject({ gloss: 'THANK-YOU', confidence: 1, handsVisible: true, source: 'gemini' });
   });
 
   it('returns 502 (not a fake transcript) when transcription fails upstream', async () => {
-    const res = await request(createApp({ config, ai: failingAi })).post('/api/gemini/transcribe').send({ audioBase64: 'AAAA' });
+    const res = await request(createApp({ config, ai: failingAi }))
+      .post('/api/gemini/transcribe')
+      .send({ audioBase64: 'AAAA' });
     expect(res.status).toBe(502);
     expect(res.body).not.toHaveProperty('transcription');
   });

@@ -79,7 +79,10 @@ describe('helpers', () => {
   });
 
   it('summarises the room', () => {
-    const tables = [table({ id: 'a', seats: 8, dhhGuestCount: 4 }), table({ id: 'b', x: 600, centerpieceHeightInches: 14 })];
+    const tables = [
+      table({ id: 'a', seats: 8, dhhGuestCount: 4 }),
+      table({ id: 'b', x: 600, centerpieceHeightInches: 14 }),
+    ];
     expect(summarizeRoom(tables)).toMatchObject({ totalSeats: 16, dhhSeats: 4, obstructedCount: 1, clearRate: 50 });
     expect(summarizeRoom([]).clearRate).toBe(0);
   });

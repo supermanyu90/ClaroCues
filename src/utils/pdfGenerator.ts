@@ -1,5 +1,5 @@
 import jsPDF from 'jspdf';
-import { EventPlan } from '../types';
+import { type EventPlan } from '../types';
 import { auditPlanAccessibility } from './accessibilityAudit';
 
 /**
@@ -126,8 +126,7 @@ export function generateEventPlanPdf(plan: EventPlan) {
     doc.setTextColor(100, 116, 139);
     doc.text(item.cueType.toUpperCase(), margin + 220, y + 14);
 
-    const truncatedDetails =
-      item.details.length > 46 ? item.details.substring(0, 46) + '...' : item.details;
+    const truncatedDetails = item.details.length > 46 ? item.details.substring(0, 46) + '...' : item.details;
     doc.text(truncatedDetails, margin + 310, y + 14);
 
     y += 22;
@@ -293,7 +292,11 @@ export function generateEventPlanPdf(plan: EventPlan) {
     const wrapped: string[] = doc.splitTextToSize(line, contentWidth - 10);
     checkPageBreak(wrapped.length * 11 + 4);
     doc.setFont('helvetica', check.status === 'pass' ? 'normal' : 'bold');
-    doc.setTextColor(check.status === 'fail' ? 185 : 51, check.status === 'fail' ? 28 : 65, check.status === 'fail' ? 28 : 85);
+    doc.setTextColor(
+      check.status === 'fail' ? 185 : 51,
+      check.status === 'fail' ? 28 : 65,
+      check.status === 'fail' ? 28 : 85
+    );
     doc.text(wrapped, margin + 4, y);
     y += wrapped.length * 11 + 3;
   }

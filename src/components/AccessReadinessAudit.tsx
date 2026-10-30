@@ -1,4 +1,3 @@
-import React from 'react';
 import type { AuditReport, AuditStatus } from '../utils/accessibilityAudit';
 
 interface AccessReadinessAuditProps {
@@ -15,7 +14,7 @@ const STATUS_STYLE: Record<AuditStatus, { label: string; icon: string; className
 
 const ORDER: AuditStatus[] = ['fail', 'warn', 'pass'];
 
-export const AccessReadinessAudit: React.FC<AccessReadinessAuditProps> = ({ report, onOpenFloorplan, onOpenBudget }) => {
+export const AccessReadinessAudit = ({ report, onOpenFloorplan, onOpenBudget }: AccessReadinessAuditProps) => {
   const sorted = [...report.checks].sort((a, b) => ORDER.indexOf(a.status) - ORDER.indexOf(b.status));
 
   return (
@@ -51,7 +50,10 @@ export const AccessReadinessAudit: React.FC<AccessReadinessAuditProps> = ({ repo
             <li key={check.id} className={`rounded-xl border p-4 ${style.className}`}>
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h3 className="font-semibold text-sm flex items-center gap-2">
-                  <span aria-hidden="true" className="inline-flex w-5 h-5 items-center justify-center rounded-full bg-slate-950/60 text-xs font-bold">
+                  <span
+                    aria-hidden="true"
+                    className="inline-flex w-5 h-5 items-center justify-center rounded-full bg-slate-950/60 text-xs font-bold"
+                  >
                     {style.icon}
                   </span>
                   {check.label}
@@ -64,12 +66,18 @@ export const AccessReadinessAudit: React.FC<AccessReadinessAuditProps> = ({ repo
                   <span className="font-semibold">How to fix: </span>
                   {check.fix}
                   {check.id === 'sightlines' && (
-                    <button onClick={onOpenFloorplan} className="ml-2 underline text-teal-300 hover:text-teal-200 cursor-pointer">
+                    <button
+                      onClick={onOpenFloorplan}
+                      className="ml-2 underline text-teal-300 hover:text-teal-200 cursor-pointer"
+                    >
                       Open floorplan
                     </button>
                   )}
                   {check.id === 'budget' && (
-                    <button onClick={onOpenBudget} className="ml-2 underline text-teal-300 hover:text-teal-200 cursor-pointer">
+                    <button
+                      onClick={onOpenBudget}
+                      className="ml-2 underline text-teal-300 hover:text-teal-200 cursor-pointer"
+                    >
                       Open budget
                     </button>
                   )}

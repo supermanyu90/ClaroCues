@@ -106,7 +106,8 @@ export function validateBody(schema: z.ZodType) {
     if (!result.success) {
       const issue = result.error.issues[0];
       const field = issue?.path.join('.') || 'body';
-      return res.status(400).json({ error: `Invalid ${field}: ${issue?.message ?? 'bad request'}` });
+      res.status(400).json({ error: `Invalid ${field}: ${issue?.message ?? 'bad request'}` });
+      return;
     }
     req.valid = result.data;
     next();

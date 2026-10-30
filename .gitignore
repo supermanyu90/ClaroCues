@@ -7,3 +7,6 @@ coverage/
 .env*
 !.env.example
 .vercel
+
+# AI Studio scratch files
+.aistudio/

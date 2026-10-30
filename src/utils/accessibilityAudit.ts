@@ -1,5 +1,5 @@
 import type { EventPlan, SightlineTable } from '../types';
-import { INDUSTRY_BENCHMARKS, classifyCategory } from './budgetBenchmark';
+import { INDUSTRY_BENCHMARKS, accessibilitySpend } from './budgetBenchmark';
 import { CENTERPIECE_MAX_INCHES, summarizeRoom } from './sightline';
 
 // A deterministic access-readiness audit computed from the plan itself. It replaces a
@@ -23,7 +23,8 @@ export interface AuditReport {
 }
 
 const BOOKED = new Set(['Booked', 'Paid']);
-const SPOKEN_SEGMENT = /\b(toasts?|speech(es)?|remarks|ceremony|vows?|keynotes?|welcome|announcements?|address|panels?|readings?)\b/i;
+const SPOKEN_SEGMENT =
+  /\b(toasts?|speech(es)?|remarks|ceremony|vows?|keynotes?|welcome|announcements?|address|panels?|readings?)\b/i;
 const INTERPRETER = /\b(asl|interpreter|interpreting|sign language)\b/i;
 const CAPTIONS = /\b(cart|caption|captioning|captioner|steno)\b/i;
 const DEAFBLIND = /\b(deafblind|deaf-blind|pro-tactile|protactile|tactile signing|support service provider)\b/i;
@@ -52,7 +53,12 @@ export function auditPlanAccessibility(plan: EventPlan, tables?: SightlineTable[
 
   checks.push(
     teamSize >= 2
-      ? { id: 'team', label: 'Interpreter team size', status: 'pass', detail: `${teamSize} interpreters, enough to team and swap.` }
+      ? {
+          id: 'team',
+          label: 'Interpreter team size',
+          status: 'pass',
+          detail: `${teamSize} interpreters, enough to team and swap.`,
+        }
       : {
           id: 'team',
           label: 'Interpreter team size',
@@ -64,7 +70,12 @@ export function auditPlanAccessibility(plan: EventPlan, tables?: SightlineTable[
 
   checks.push(
     rotationIntervalMinutes <= 20
-      ? { id: 'rotation', label: 'Interpreter rotation interval', status: 'pass', detail: `Swaps every ${rotationIntervalMinutes} minutes.` }
+      ? {
+          id: 'rotation',
+          label: 'Interpreter rotation interval',
+          status: 'pass',
+          detail: `Swaps every ${rotationIntervalMinutes} minutes.`,
+        }
       : {
           id: 'rotation',
           label: 'Interpreter rotation interval',
@@ -83,8 +94,8 @@ export function auditPlanAccessibility(plan: EventPlan, tables?: SightlineTable[
       interp === 'booked'
         ? 'An interpreter provider is booked.'
         : interp === 'planned'
-        ? 'Interpreters are planned but not yet booked.'
-        : 'No interpreter vendor or budget line found.',
+          ? 'Interpreters are planned but not yet booked.'
+          : 'No interpreter vendor or budget line found.',
     fix: interp === 'booked' ? undefined : 'Add an interpreter agency to the vendor checklist and confirm the booking.',
   });
 
@@ -97,14 +108,12 @@ export function auditPlanAccessibility(plan: EventPlan, tables?: SightlineTable[
       cart === 'booked'
         ? 'A captioning provider is booked.'
         : cart === 'planned'
-        ? 'Captioning is planned but not yet booked.'
-        : 'No captioning provider or budget line found. Many Hard-of-Hearing guests do not sign.',
+          ? 'Captioning is planned but not yet booked.'
+          : 'No captioning provider or budget line found. Many Hard-of-Hearing guests do not sign.',
     fix: cart === 'booked' ? undefined : 'Book a CART captioner and plan large, low-glare caption screens.',
   });
 
-  const accessSpend = plan.budgetAllocation
-    .filter((b) => classifyCategory(b.category) === 'accessibility')
-    .reduce((sum, b) => sum + b.amount, 0);
+  const accessSpend = accessibilitySpend(plan.budgetAllocation);
   const sharePct = plan.totalBudget > 0 ? (accessSpend / plan.totalBudget) * 100 : 0;
   const benchmark = INDUSTRY_BENCHMARKS[plan.eventType].accessibility.industryAveragePercent;
   checks.push({
@@ -120,7 +129,12 @@ export function auditPlanAccessibility(plan: EventPlan, tables?: SightlineTable[
   );
   checks.push(
     uncoveredSegments.length === 0
-      ? { id: 'spoken-coverage', label: 'Spoken segments covered', status: 'pass', detail: 'Every speech or ceremony segment has interpreting or captions.' }
+      ? {
+          id: 'spoken-coverage',
+          label: 'Spoken segments covered',
+          status: 'pass',
+          detail: 'Every speech or ceremony segment has interpreting or captions.',
+        }
       : {
           id: 'spoken-coverage',
           label: 'Spoken segments covered',
@@ -133,7 +147,12 @@ export function auditPlanAccessibility(plan: EventPlan, tables?: SightlineTable[
   const visualCues = plan.sensoryAndVisualCues.filter((c) => c.visualCue.trim());
   checks.push(
     visualCues.length >= 2
-      ? { id: 'visual-cues', label: 'Visual equivalents for sound cues', status: 'pass', detail: `${visualCues.length} visual/tactile cues defined.` }
+      ? {
+          id: 'visual-cues',
+          label: 'Visual equivalents for sound cues',
+          status: 'pass',
+          detail: `${visualCues.length} visual/tactile cues defined.`,
+        }
       : {
           id: 'visual-cues',
           label: 'Visual equivalents for sound cues',
@@ -145,7 +164,12 @@ export function auditPlanAccessibility(plan: EventPlan, tables?: SightlineTable[
 
   checks.push(
     EMERGENCY.test(allPlanText(plan))
-      ? { id: 'emergency', label: 'Visual emergency alerts', status: 'pass', detail: 'Emergency alerting is addressed in the plan.' }
+      ? {
+          id: 'emergency',
+          label: 'Visual emergency alerts',
+          status: 'pass',
+          detail: 'Emergency alerting is addressed in the plan.',
+        }
       : {
           id: 'emergency',
           label: 'Visual emergency alerts',
@@ -157,7 +181,12 @@ export function auditPlanAccessibility(plan: EventPlan, tables?: SightlineTable[
 
   checks.push(
     prepMaterialWindowDays >= 7
-      ? { id: 'prep', label: 'Prep materials for interpreters', status: 'pass', detail: `Shared ${prepMaterialWindowDays} days ahead.` }
+      ? {
+          id: 'prep',
+          label: 'Prep materials for interpreters',
+          status: 'pass',
+          detail: `Shared ${prepMaterialWindowDays} days ahead.`,
+        }
       : {
           id: 'prep',
           label: 'Prep materials for interpreters',
@@ -170,7 +199,12 @@ export function auditPlanAccessibility(plan: EventPlan, tables?: SightlineTable[
   const deafBlindTables = tables?.some((t) => t.tableType === 'tactile-close') ?? false;
   checks.push(
     deafBlindTables || DEAFBLIND.test(allPlanText(plan))
-      ? { id: 'deafblind', label: 'DeafBlind guests', status: 'pass', detail: 'Close-vision or pro-tactile provision is planned.' }
+      ? {
+          id: 'deafblind',
+          label: 'DeafBlind guests',
+          status: 'pass',
+          detail: 'Close-vision or pro-tactile provision is planned.',
+        }
       : {
           id: 'deafblind',
           label: 'DeafBlind guests',
@@ -198,7 +232,12 @@ export function auditPlanAccessibility(plan: EventPlan, tables?: SightlineTable[
   if (plan.readinessChecklist.length > 0) {
     checks.push(
       pending.length === 0
-        ? { id: 'readiness', label: 'Day-of readiness checklist', status: 'pass', detail: 'All readiness items are ready or verified.' }
+        ? {
+            id: 'readiness',
+            label: 'Day-of readiness checklist',
+            status: 'pass',
+            detail: 'All readiness items are ready or verified.',
+          }
         : {
             id: 'readiness',
             label: 'Day-of readiness checklist',

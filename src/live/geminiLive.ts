@@ -1,6 +1,6 @@
 import type { LiveServerMessage } from '@google/genai';
-import type { LiveEvent, LiveEventContext, LiveTokenResponse } from '../shared/liveProtocol';
-import { postJson } from '../utils/api';
+import type { LiveEvent, LiveEventContext } from '../shared/liveProtocol';
+import { requestLiveToken } from '../services/apiClient';
 
 /** Translates one Gemini Live server message into the UI events the concierge renders. */
 export function toLiveEvents(message: LiveServerMessage): LiveEvent[] {
@@ -10,8 +10,10 @@ export function toLiveEvents(message: LiveServerMessage): LiveEvent[] {
   for (const part of content.modelTurn?.parts ?? []) {
     if (part.inlineData?.data) events.push({ type: 'audio', data: part.inlineData.data });
   }
-  if (content.inputTranscription?.text) events.push({ type: 'caption', speaker: 'user', text: content.inputTranscription.text });
-  if (content.outputTranscription?.text) events.push({ type: 'caption', speaker: 'assistant', text: content.outputTranscription.text });
+  if (content.inputTranscription?.text)
+    events.push({ type: 'caption', speaker: 'user', text: content.inputTranscription.text });
+  if (content.outputTranscription?.text)
+    events.push({ type: 'caption', speaker: 'assistant', text: content.outputTranscription.text });
   if (content.interrupted) events.push({ type: 'interrupted' });
   if (content.turnComplete) events.push({ type: 'turnComplete' });
   return events;
@@ -35,7 +37,7 @@ export interface LiveHandlers {
  * serverless hosting and the API key never reaches the client.
  */
 export async function connectGeminiLive(context: LiveEventContext, handlers: LiveHandlers): Promise<LiveConnection> {
-  const { token, model } = await postJson<LiveTokenResponse>('/api/live-token', { context });
+  const { token, model } = await requestLiveToken(context);
   // Loaded on demand so the SDK only ships to people who open the concierge.
   const { GoogleGenAI, Modality } = await import('@google/genai');
   const ai = new GoogleGenAI({ apiKey: token, httpOptions: { apiVersion: 'v1alpha' } });

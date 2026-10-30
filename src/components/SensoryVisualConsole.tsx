@@ -1,14 +1,12 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { SensoryCue } from '../types';
+import { useEffect, useRef, useState } from 'react';
+import { type SensoryCue } from '../types';
+import { prefersReducedMotion } from '../utils/motion';
 
 interface SensoryVisualConsoleProps {
   cues: SensoryCue[];
 }
 
 const GRID = 8;
-
-const prefersReducedMotion = () =>
-  typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
 /** Amber↔cyan colour for a cell brightness in [0, 1]. */
 export function cellColor(val: number): string {
@@ -26,7 +24,7 @@ function vibrate(pattern: number[]) {
   }
 }
 
-export const SensoryVisualConsole: React.FC<SensoryVisualConsoleProps> = ({ cues }) => {
+export const SensoryVisualConsole = ({ cues }: SensoryVisualConsoleProps) => {
   const [activeCueId, setActiveCueId] = useState<string | null>(null);
   const [broadcastCue, setBroadcastCue] = useState<SensoryCue | null>(null);
   const [isAudioLive, setIsAudioLive] = useState(false);
@@ -40,8 +38,11 @@ export const SensoryVisualConsole: React.FC<SensoryVisualConsoleProps> = ({ cues
   const audioCtxRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  // Read by the animation loop without restarting it on every slider move.
   const sensitivityRef = useRef(sensitivity);
-  sensitivityRef.current = sensitivity;
+  useEffect(() => {
+    sensitivityRef.current = sensitivity;
+  }, [sensitivity]);
   const broadcastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Paint cells straight to the DOM: animating 64 cells through React state re-rendered the
@@ -124,7 +125,8 @@ export const SensoryVisualConsole: React.FC<SensoryVisualConsoleProps> = ({ cues
     }
   };
 
-  const scaled = (pattern: number[]) => pattern.map((ms, i) => (i % 2 === 0 ? Math.round((ms * hapticIntensity) / 100) : ms));
+  const scaled = (pattern: number[]) =>
+    pattern.map((ms, i) => (i % 2 === 0 ? Math.round((ms * hapticIntensity) / 100) : ms));
 
   const handleTriggerCue = (cue: SensoryCue) => {
     setActiveCueId(cue.id);
@@ -140,7 +142,10 @@ export const SensoryVisualConsole: React.FC<SensoryVisualConsoleProps> = ({ cues
     <div className="space-y-8">
       {/* A steady tint, never a flash: photosensitive guests may be in the room (WCAG 2.3.1). */}
       {broadcastCue && (
-        <div aria-hidden="true" className="fixed inset-0 pointer-events-none z-50 flex items-center justify-center bg-teal-400/15">
+        <div
+          aria-hidden="true"
+          className="fixed inset-0 pointer-events-none z-50 flex items-center justify-center bg-teal-400/15"
+        >
           <div className="bg-slate-900/95 border border-teal-500 rounded-xl px-6 py-4 shadow-2xl text-center space-y-1">
             <div className="text-xs font-mono uppercase tracking-widest text-teal-300">Visual cue broadcast</div>
             <div className="text-base font-bold text-white">{broadcastCue.trigger}</div>
@@ -171,13 +176,17 @@ export const SensoryVisualConsole: React.FC<SensoryVisualConsoleProps> = ({ cues
           <div className="flex items-center gap-3">
             <div>
               <div className="font-medium text-slate-300">Music-reactive preview</div>
-              <div className="text-[11px] text-slate-400 font-mono">{isAudioLive ? 'Listening to the room' : 'Built-in rhythm'}</div>
+              <div className="text-[11px] text-slate-400 font-mono">
+                {isAudioLive ? 'Listening to the room' : 'Built-in rhythm'}
+              </div>
             </div>
             <button
               onClick={toggleLiveMic}
               aria-pressed={isAudioLive}
               className={`px-3 py-1.5 font-semibold rounded-lg transition-colors cursor-pointer ${
-                isAudioLive ? 'bg-rose-500 text-white hover:bg-rose-600' : 'bg-teal-400 text-slate-950 hover:bg-teal-300'
+                isAudioLive
+                  ? 'bg-rose-500 text-white hover:bg-rose-600'
+                  : 'bg-teal-400 text-slate-950 hover:bg-teal-300'
               }`}
             >
               {isAudioLive ? 'Stop mic' : 'Use mic'}
@@ -336,7 +345,9 @@ export const SensoryVisualConsole: React.FC<SensoryVisualConsoleProps> = ({ cues
               >
                 Test vibration on this device
               </button>
-              <p className="text-[11px] text-slate-400">Works on phones that support vibration; desktops will show the visual cue only.</p>
+              <p className="text-[11px] text-slate-400">
+                Works on phones that support vibration; desktops will show the visual cue only.
+              </p>
             </div>
           </div>
         </div>

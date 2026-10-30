@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 @theme {
   --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
@@ -27,7 +27,11 @@
     background-color: #ffffff !important;
     color: #0f172a !important;
   }
-  header, nav, footer, button, .no-print {
+  header,
+  nav,
+  footer,
+  button,
+  .no-print {
     display: none !important;
   }
   .printable-report {

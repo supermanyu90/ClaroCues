@@ -16,7 +16,12 @@ describe('normalizeGeneratedPlan', () => {
       const plan = normalizeGeneratedPlan(raw, request, 'seed');
       expect(plan).toMatchObject({ id: 'plan-seed', eventType: 'wedding', guestCount: 120, totalBudget: 25000 });
       expect(plan.budgetAllocation).toEqual([]);
-      expect(plan.interpreterStaffing).toEqual({ teamSize: 2, rotationIntervalMinutes: 20, qualifications: 'Certified interpreter team', prepMaterialWindowDays: 7 });
+      expect(plan.interpreterStaffing).toEqual({
+        teamSize: 2,
+        rotationIntervalMinutes: 20,
+        qualifications: 'Certified interpreter team',
+        prepMaterialWindowDays: 7,
+      });
       expect(plan.sightlineAndSeating.focalZones.length).toBeGreaterThan(0);
     }
   });
@@ -34,16 +39,35 @@ describe('normalizeGeneratedPlan', () => {
     );
     expect(plan.budgetAllocation[0]).toMatchObject({ amount: 4001, priority: 'High', status: 'Estimated' });
     expect(plan.vendorChecklist[0]).toMatchObject({ status: 'To Research', estimatedCost: 0, keyQuestions: ['Q1'] });
-    expect(plan.timelineMilestones[0]).toMatchObject({ time: '00:00', cueType: 'milestone', interpreterRotation: false });
-    expect(plan.personalizedIdeas[0]).toMatchObject({ category: 'Inclusive Touch', budgetImpact: 'Medium', isSaved: true });
+    expect(plan.timelineMilestones[0]).toMatchObject({
+      time: '00:00',
+      cueType: 'milestone',
+      interpreterRotation: false,
+    });
+    expect(plan.personalizedIdeas[0]).toMatchObject({
+      category: 'Inclusive Touch',
+      budgetImpact: 'Medium',
+      isSaved: true,
+    });
   });
 
   it('keeps the accessibility sections the model returns', () => {
     const plan = normalizeGeneratedPlan(
       {
-        interpreterStaffing: { teamSize: 3, rotationIntervalMinutes: 15, qualifications: 'NIC', prepMaterialWindowDays: 10 },
-        sensoryAndVisualCues: [{ trigger: 'Dinner call', visualCue: 'Lights dip', hapticCue: 'Pulse', captionMode: 'Screens' }, { visualCue: 'no trigger' }],
-        readinessChecklist: [{ item: 'CART booked', status: 'Verified', detail: '' }, { item: 'Loop', status: 'nope' }],
+        interpreterStaffing: {
+          teamSize: 3,
+          rotationIntervalMinutes: 15,
+          qualifications: 'NIC',
+          prepMaterialWindowDays: 10,
+        },
+        sensoryAndVisualCues: [
+          { trigger: 'Dinner call', visualCue: 'Lights dip', hapticCue: 'Pulse', captionMode: 'Screens' },
+          { visualCue: 'no trigger' },
+        ],
+        readinessChecklist: [
+          { item: 'CART booked', status: 'Verified', detail: '' },
+          { item: 'Loop', status: 'nope' },
+        ],
       },
       request,
       's'
@@ -55,7 +79,12 @@ describe('normalizeGeneratedPlan', () => {
 
   it('sorts milestones by time and pads single-digit hours', () => {
     const plan = normalizeGeneratedPlan(
-      { timelineMilestones: [{ title: 'Late', time: '19:00' }, { title: 'Early', time: '9:30' }] },
+      {
+        timelineMilestones: [
+          { title: 'Late', time: '19:00' },
+          { title: 'Early', time: '9:30' },
+        ],
+      },
       request,
       's'
     );
@@ -63,7 +92,11 @@ describe('normalizeGeneratedPlan', () => {
   });
 
   it('caps very long lists', () => {
-    const plan = normalizeGeneratedPlan({ budgetAllocation: Array.from({ length: 500 }, (_, i) => ({ category: `C${i}`, amount: 1 })) }, request, 's');
+    const plan = normalizeGeneratedPlan(
+      { budgetAllocation: Array.from({ length: 500 }, (_, i) => ({ category: `C${i}`, amount: 1 })) },
+      request,
+      's'
+    );
     expect(plan.budgetAllocation.length).toBe(40);
   });
 });

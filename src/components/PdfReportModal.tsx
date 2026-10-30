@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { EventPlan } from '../types';
+import { useState } from 'react';
+import { type EventPlan } from '../types';
 import { Modal } from './ui/Modal';
 
 interface PdfReportModalProps {
@@ -8,11 +8,7 @@ interface PdfReportModalProps {
   plan: EventPlan;
 }
 
-export const PdfReportModal: React.FC<PdfReportModalProps> = ({
-  isOpen,
-  onClose,
-  plan,
-}) => {
+export const PdfReportModal = ({ isOpen, onClose, plan }: PdfReportModalProps) => {
   const [isExporting, setIsExporting] = useState(false);
   if (!isOpen) return null;
 
@@ -70,9 +66,7 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
                 <span>{plan.eventType} Master Plan</span>
                 <span>{plan.dateStr}</span>
               </div>
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
-                {plan.title}
-              </h1>
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">{plan.title}</h1>
               <div className="flex flex-wrap items-center gap-4 text-xs text-slate-300 pt-1 font-mono">
                 <span>Guests: {plan.guestCount}</span>
                 <span>·</span>
@@ -118,18 +112,12 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
                   <tbody className="divide-y divide-slate-200 font-sans">
                     {plan.timelineMilestones.map((m) => (
                       <tr key={m.id} className="hover:bg-slate-50">
-                        <td className="py-2 px-3 font-mono font-bold text-teal-700 whitespace-nowrap">
-                          {m.time}
-                        </td>
-                        <td className="py-2 px-3 font-semibold text-slate-900 whitespace-nowrap">
-                          {m.title}
-                        </td>
+                        <td className="py-2 px-3 font-mono font-bold text-teal-700 whitespace-nowrap">{m.time}</td>
+                        <td className="py-2 px-3 font-semibold text-slate-900 whitespace-nowrap">{m.title}</td>
                         <td className="py-2 px-3 uppercase text-[11px] font-mono text-slate-400 whitespace-nowrap">
                           {m.cueType}
                         </td>
-                        <td className="py-2 px-3 text-slate-600 text-[11px]">
-                          {m.details}
-                        </td>
+                        <td className="py-2 px-3 text-slate-600 text-[11px]">{m.details}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -204,9 +192,19 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
                 5. DeafSpace & Sensory Accessibility Directives
               </div>
               <ul className="list-disc list-inside space-y-1 text-[11px]">
-                <li><span className="font-semibold text-slate-800">Sightline Clearance:</span> {plan.sightlineAndSeating.recommendedLayout}</li>
-                <li><span className="font-semibold text-slate-800">Interpreter Team:</span> {plan.interpreterStaffing.teamSize} RID Interpreters on {plan.interpreterStaffing.rotationIntervalMinutes}-minute rotations</li>
-                <li><span className="font-semibold text-slate-800">Centerpiece Constraint:</span> At or below 9.5 inches so faces and signing stay visible across tables</li>
+                <li>
+                  <span className="font-semibold text-slate-800">Sightline Clearance:</span>{' '}
+                  {plan.sightlineAndSeating.recommendedLayout}
+                </li>
+                <li>
+                  <span className="font-semibold text-slate-800">Interpreter Team:</span>{' '}
+                  {plan.interpreterStaffing.teamSize} RID Interpreters on{' '}
+                  {plan.interpreterStaffing.rotationIntervalMinutes}-minute rotations
+                </li>
+                <li>
+                  <span className="font-semibold text-slate-800">Centerpiece Constraint:</span> At or below 9.5 inches
+                  so faces and signing stay visible across tables
+                </li>
               </ul>
             </div>
 

@@ -17,7 +17,9 @@ describe('csv export', () => {
   });
 
   it('writes a header and one row per item', () => {
-    const csv = budgetToCsv([{ id: '1', category: 'Venue', amount: 100, priority: 'High', notes: '', status: 'Booked' }]);
+    const csv = budgetToCsv([
+      { id: '1', category: 'Venue', amount: 100, priority: 'High', notes: '', status: 'Booked' },
+    ]);
     expect(csv.split('\n')).toEqual(['Category,Amount,Priority,Status,Notes', 'Venue,100,High,Booked,']);
   });
 });
