@@ -208,5 +208,6 @@ describe('helpers', () => {
   it('treats the placeholder key as missing', () => {
     expect(loadConfig({ GEMINI_API_KEY: 'MY_GEMINI_API_KEY' }).geminiApiKey).toBeNull();
     expect(loadConfig({ GEMINI_API_KEY: ' real ' }).geminiApiKey).toBe('real');
+    expect(loadConfig({ GEMINI_KEY: 'alias' }).geminiApiKey).toBe('alias');
   });
 });

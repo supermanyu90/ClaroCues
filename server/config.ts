@@ -28,7 +28,8 @@ export interface ServerConfig {
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
-  const key = env.GEMINI_API_KEY?.trim() ?? '';
+  // GEMINI_KEY is accepted as an alias (the name used in the Vercel project).
+  const key = (env.GEMINI_API_KEY || env.GEMINI_KEY)?.trim() ?? '';
   return {
     port: Number.parseInt(env.PORT ?? '', 10) || 3000,
     isProduction: env.NODE_ENV === 'production',
