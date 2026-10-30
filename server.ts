@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url';
 import { createGeminiClient, createGeminiGateway } from './server/ai.js';
 import { createApp } from './server/app.js';
 import { loadConfig } from './server/config.js';
-import { attachLiveGateway } from './server/live.js';
+import { createLiveTokenIssuer } from './server/liveToken.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -16,9 +16,12 @@ async function startServer() {
     console.warn('GEMINI_API_KEY is not set: AI features will return labelled fallback content or be disabled.');
   }
 
-  const app = createApp({ config, ai: client ? createGeminiGateway(client) : null });
+  const app = createApp({
+    config,
+    ai: client ? createGeminiGateway(client) : null,
+    liveTokens: createLiveTokenIssuer(config.geminiApiKey, config.models.live),
+  });
   const server = http.createServer(app);
-  attachLiveGateway(server, client, config);
 
   if (!config.isProduction) {
     const { createServer: createViteServer } = await import('vite');

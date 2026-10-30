@@ -1,6 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { EventPlan } from '../types';
-import type { LiveClientMessage, LiveServerMessage } from '../shared/liveProtocol';
+import type { LiveEvent } from '../shared/liveProtocol';
+import { LIVE_MAX_TEXT_CHARS } from '../shared/liveProtocol';
+import { connectGeminiLive, type LiveConnection } from '../live/geminiLive';
+import { ApiError, errorMessage } from '../utils/api';
 import { LIVE_OUTPUT_RATE, base64PcmToFloat32, downsampleTo16kPcm, int16ToBase64, rms } from '../utils/pcm';
 import { Modal } from './ui/Modal';
 import { ErrorNotice } from './ui/SourceBadge';
@@ -40,7 +43,9 @@ export const LiveVoiceAssistantModal: React.FC<LiveVoiceAssistantModalProps> = (
   const [typed, setTyped] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  const wsRef = useRef<WebSocket | null>(null);
+  const connectionRef = useRef<LiveConnection | null>(null);
+  /** Bumped on every start/end so a slow connect that resolves after the dialog closed is discarded. */
+  const sessionGen = useRef(0);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
   const workletRef = useRef<AudioWorkletNode | null>(null);
@@ -50,18 +55,18 @@ export const LiveVoiceAssistantModal: React.FC<LiveVoiceAssistantModalProps> = (
   const levelRef = useRef(0);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const captionId = useRef(0);
+  /** Set at turn boundaries so the next fragment opens a new caption instead of extending the last. */
+  const newCaptionRef = useRef(true);
   const planRef = useRef(currentPlan);
   planRef.current = currentPlan;
 
-  const send = (msg: LiveClientMessage) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) wsRef.current.send(JSON.stringify(msg));
-  };
-
   // Streaming transcription arrives in fragments; append to the current caption while the same person is talking.
   const appendCaption = (speaker: Caption['speaker'], text: string) => {
+    const startNew = newCaptionRef.current;
+    newCaptionRef.current = false;
     setCaptions((prev) => {
       const last = prev[prev.length - 1];
-      if (last && last.speaker === speaker) {
+      if (last && last.speaker === speaker && !startNew) {
         return [...prev.slice(0, -1), { ...last, text: `${last.text}${text}` }];
       }
       return [...prev, { id: ++captionId.current, speaker, text: text.trimStart() }];
@@ -126,7 +131,7 @@ export const LiveVoiceAssistantModal: React.FC<LiveVoiceAssistantModalProps> = (
       node.port.onmessage = (e: MessageEvent<Float32Array>) => {
         if (!isMicOnRef.current) return;
         levelRef.current = rms(e.data) * 5;
-        send({ type: 'audio', data: int16ToBase64(downsampleTo16kPcm(e.data, ctx.sampleRate)) });
+        connectionRef.current?.sendAudio(int16ToBase64(downsampleTo16kPcm(e.data, ctx.sampleRate)));
       };
       ctx.createMediaStreamSource(stream).connect(node);
       workletRef.current = node;
@@ -140,16 +145,25 @@ export const LiveVoiceAssistantModal: React.FC<LiveVoiceAssistantModalProps> = (
   };
 
   const endSession = useCallback(() => {
+    sessionGen.current++;
     stopMic();
     stopPlayback();
-    wsRef.current?.close();
-    wsRef.current = null;
+    connectionRef.current?.close();
+    connectionRef.current = null;
     void audioCtxRef.current?.close().catch(() => undefined);
     audioCtxRef.current = null;
   }, []);
 
-  const startSession = useCallback(() => {
+  const handleEvent = (event: LiveEvent) => {
+    if (event.type === 'audio') playChunk(event.data);
+    else if (event.type === 'caption') appendCaption(event.speaker, event.text);
+    else if (event.type === 'interrupted') stopPlayback();
+    else if (event.type === 'turnComplete') newCaptionRef.current = true;
+  };
+
+  const startSession = useCallback(async () => {
     endSession();
+    const gen = sessionGen.current;
     setStatus('connecting');
     setError(null);
     setCaptions([]);
@@ -159,69 +173,49 @@ export const LiveVoiceAssistantModal: React.FC<LiveVoiceAssistantModalProps> = (
     // Opened from a click, so resuming here satisfies browser autoplay rules.
     void audioCtxRef.current.resume().catch(() => undefined);
 
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const ws = new WebSocket(`${protocol}//${window.location.host}/live`);
-    wsRef.current = ws;
-
-    ws.onopen = () => {
-      const plan = planRef.current;
-      send({
-        type: 'start',
-        context: {
+    const plan = planRef.current;
+    try {
+      const connection = await connectGeminiLive(
+        {
           title: plan.title,
           eventType: plan.eventType,
           guestCount: plan.guestCount,
           totalBudget: plan.totalBudget,
           venueName: plan.venueName,
         },
-      });
-    };
-
-    ws.onmessage = (event) => {
-      let msg: LiveServerMessage;
-      try {
-        msg = JSON.parse(event.data);
-      } catch {
+        {
+          onEvent: (event) => {
+            if (gen === sessionGen.current) handleEvent(event);
+          },
+          onError: (message) => {
+            if (gen !== sessionGen.current) return;
+            setStatus('error');
+            setError(message);
+          },
+          onClose: () => {
+            if (gen !== sessionGen.current) return;
+            setStatus((s) => (s === 'error' ? s : 'closed'));
+            stopMic();
+            stopPlayback();
+          },
+        }
+      );
+      if (gen !== sessionGen.current) {
+        connection.close();
         return;
       }
-      switch (msg.type) {
-        case 'ready':
-          setStatus(msg.mode === 'live' ? 'connected' : 'unavailable');
-          if (msg.message) setError(msg.message);
-          break;
-        case 'audio':
-          playChunk(msg.data);
-          break;
-        case 'caption':
-          appendCaption(msg.speaker, msg.text);
-          break;
-        case 'interrupted':
-          stopPlayback();
-          break;
-        case 'error':
-          setError(msg.message);
-          break;
-        case 'turnComplete':
-          break;
-      }
-    };
-
-    ws.onerror = () => {
-      setStatus('error');
-      setError(
-        'Could not reach the live concierge. It needs the long-running ClaroCues server (npm start) and is not available on serverless hosting such as Vercel. The AI Assistant tab works everywhere.'
-      );
-    };
-    ws.onclose = () => {
-      setStatus((s) => (s === 'error' || s === 'unavailable' ? s : 'closed'));
-      stopMic();
-      stopPlayback();
-    };
+      connectionRef.current = connection;
+      setStatus('connected');
+    } catch (err) {
+      if (gen !== sessionGen.current) return;
+      setStatus(err instanceof ApiError && err.status === 503 ? 'unavailable' : 'error');
+      setError(errorMessage(err));
+    }
   }, [endSession]);
 
   useEffect(() => {
     if (!isOpen) return;
-    startSession();
+    void startSession();
     return () => {
       endSession();
       setStatus('idle');
@@ -268,7 +262,11 @@ export const LiveVoiceAssistantModal: React.FC<LiveVoiceAssistantModalProps> = (
     e.preventDefault();
     const text = typed.trim();
     if (!text || status !== 'connected') return;
-    send({ type: 'text', data: text });
+    connectionRef.current?.sendText(text);
+    newCaptionRef.current = true;
+    appendCaption('user', text);
+    // The reply (or the next spoken fragment) belongs in its own caption.
+    newCaptionRef.current = true;
     setTyped('');
   };
 
@@ -327,7 +325,7 @@ export const LiveVoiceAssistantModal: React.FC<LiveVoiceAssistantModalProps> = (
             id="live-typed"
             value={typed}
             onChange={(e) => setTyped(e.target.value)}
-            maxLength={2000}
+            maxLength={LIVE_MAX_TEXT_CHARS}
             disabled={status !== 'connected'}
             placeholder="Type a question instead of speaking…"
             className="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-teal-500 disabled:opacity-50"
@@ -352,7 +350,7 @@ export const LiveVoiceAssistantModal: React.FC<LiveVoiceAssistantModalProps> = (
           </button>
           {status === 'error' || status === 'closed' ? (
             <button
-              onClick={startSession}
+              onClick={() => void startSession()}
               className="px-4 py-2 rounded-lg text-xs font-semibold bg-teal-400 hover:bg-teal-300 text-slate-950 cursor-pointer"
             >
               Reconnect

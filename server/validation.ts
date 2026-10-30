@@ -83,6 +83,16 @@ export const recognizeSignSchema = z.object({
   mimeType: z.enum(['image/jpeg', 'image/png', 'image/webp']).default('image/jpeg'),
 });
 
+export const liveTokenSchema = z.object({
+  context: z.object({
+    title: shortText(200).default(''),
+    eventType: shortText(60).default(''),
+    guestCount: z.number().int().min(0).max(5000).default(0),
+    totalBudget: z.number().min(0).max(10_000_000).default(0),
+    venueName: shortText(200).default(''),
+  }),
+});
+
 declare module 'express-serve-static-core' {
   interface Request {
     valid?: unknown;

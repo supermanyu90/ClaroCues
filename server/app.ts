@@ -4,12 +4,14 @@ import { rateLimit } from 'express-rate-limit';
 import type { z } from 'zod';
 import type { AiGateway, GroundingChunk } from './ai.js';
 import type { ServerConfig } from './config.js';
+import type { LiveTokenIssuer } from './liveToken.js';
 import * as fallbacks from './fallbacks.js';
 import * as prompts from './prompts.js';
 import {
   aslGlossSchema,
   assistantChatSchema,
   ideasSchema,
+  liveTokenSchema,
   mapsSearchSchema,
   planEventSchema,
   recognizeSignSchema,
@@ -22,6 +24,19 @@ export interface AppDeps {
   config: ServerConfig;
   /** null when no API key is configured. */
   ai: AiGateway | null;
+  /** Mints ephemeral Gemini Live tokens; null when no API key is configured. */
+  liveTokens?: LiveTokenIssuer | null;
+}
+
+/** True when the request comes from a page on this host (or an explicitly allowed origin). */
+export function isOriginAllowed(origin: string | undefined, host: string | undefined, allowed: string[]): boolean {
+  if (!origin) return false;
+  try {
+    const url = new URL(origin);
+    return url.host === host || allowed.includes(url.origin);
+  } catch {
+    return false;
+  }
 }
 
 /** Parses model JSON output, tolerating a ```json fence. Returns null on malformed output. */
@@ -76,7 +91,7 @@ const unavailable = (res: Response, feature: string) =>
     error: `${feature} needs the Gemini API. Set GEMINI_API_KEY on the server to enable it.`,
   });
 
-export function createApp({ config, ai }: AppDeps) {
+export function createApp({ config, ai, liveTokens = null }: AppDeps) {
   const app = express();
   if (config.trustProxy) app.set('trust proxy', 1);
 
@@ -92,7 +107,8 @@ export function createApp({ config, ai }: AppDeps) {
               fontSrc: ["'self'", 'https://fonts.gstatic.com'],
               imgSrc: ["'self'", 'data:', 'blob:'],
               mediaSrc: ["'self'", 'blob:'],
-              connectSrc: ["'self'", 'ws:', 'wss:'],
+              // The live concierge connects from the browser straight to Gemini Live.
+              connectSrc: ["'self'", 'https://generativelanguage.googleapis.com', 'wss://generativelanguage.googleapis.com'],
               frameAncestors: ["'self'"],
               // TLS is terminated by the host (e.g. Cloud Run); forcing upgrades breaks plain-HTTP local runs.
               upgradeInsecureRequests: null,
@@ -304,6 +320,31 @@ export function createApp({ config, ai }: AppDeps) {
       }
     }
   );
+
+  // Each token opens one paid Gemini Live session, so it gets a much tighter limit and is only
+  // issued to pages served from this origin.
+  const liveTokenLimiter = rateLimit({
+    windowMs: 60_000,
+    limit: 6,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    message: { error: 'Too many live sessions started. Please wait a minute.' },
+  });
+
+  app.post('/api/live-token', liveTokenLimiter, smallJson, validateBody(liveTokenSchema), async (req, res) => {
+    if (!isOriginAllowed(req.get('origin'), req.get('host'), config.allowedOrigins)) {
+      return res.status(403).json({ error: 'Live sessions can only be started from the ClaroCues app.' });
+    }
+    if (!liveTokens) return unavailable(res, 'The live concierge');
+    try {
+      const { context } = valid(req, liveTokenSchema);
+      res.setHeader('Cache-Control', 'no-store');
+      return res.json(await liveTokens.issue(context));
+    } catch (err) {
+      console.warn('Live token creation failed:', err);
+      return res.status(502).json({ error: 'Could not start a live session. Please try again.' });
+    }
+  });
 
   app.use('/api', (_req, res) => {
     res.status(404).json({ error: 'Not found' });

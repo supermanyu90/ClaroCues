@@ -1,10 +1,15 @@
-// Vercel serverless entry: serves the Express /api routes. The /live WebSocket gateway needs a
-// long-running server (npm start, Cloud Run, Render), so it is not available on Vercel.
+// Vercel serverless entry for the Express /api routes. The live concierge works here too: the
+// browser connects to Gemini Live directly with an ephemeral token from /api/live-token.
 import { createGeminiClient, createGeminiGateway } from '../server/ai.js';
 import { createApp } from '../server/app.js';
 import { loadConfig } from '../server/config.js';
+import { createLiveTokenIssuer } from '../server/liveToken.js';
 
 const config = loadConfig();
 const client = createGeminiClient(config.geminiApiKey);
 
-export default createApp({ config, ai: client ? createGeminiGateway(client) : null });
+export default createApp({
+  config,
+  ai: client ? createGeminiGateway(client) : null,
+  liveTokens: createLiveTokenIssuer(config.geminiApiKey, config.models.live),
+});

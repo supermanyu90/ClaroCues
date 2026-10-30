@@ -22,7 +22,7 @@
 - **🌸 Centerpiece Height Guardrail**  
   Enforces strict DeafSpace physical constraints (centerpieces capped at $\le 9.5''$ or $8.5''$ on banquet tables) to prevent blocking facial expressions, lipreading, and signing space.
 - **💬 Captioned Live Concierge (Gemini Live)**  
-  Real-time planning conversation over WebSockets. Both sides are captioned live (input and output audio transcription), and users can type instead of speaking, so the concierge works for Deaf and Hard-of-Hearing planners.
+  Real-time planning conversation with Gemini Live. Both sides are captioned live (input and output audio transcription), and users can type instead of speaking, so the concierge works for Deaf and Hard-of-Hearing planners. The browser connects to Gemini directly with a single-use ephemeral token from `/api/live-token`, so it runs on serverless hosts like Vercel and the API key never reaches the client.
 - **🗺️ Google Maps Grounded Venue Radar**  
   AI discovery grounded with Google Maps Platform to inspect venues for physical accessibility, step-free access, non-glare lighting, and low reverberation acoustic ceilings.
 - **💰 Budget Planner with Benchmark Warning System**  
@@ -66,7 +66,7 @@ ClaroCues applies the 5 DeafSpace principles pioneered at Gallaudet University:
 
 ### Backend & AI
 - **Server**: Express 4 + Node.js (via `tsx`)
-- **Real-Time Streaming**: Native WebSockets (`ws`)
+- **Real-Time Voice**: Gemini Live from the browser via ephemeral tokens
 - **AI SDK**: `@google/genai` TypeScript SDK
 - **Models**:
   - `gemini-3.8-flash`: Blueprint generation, budget recommendations, venue radar grounding, and conversational assistant.
@@ -78,11 +78,12 @@ ClaroCues applies the 5 DeafSpace principles pioneered at Gallaudet University:
 ## 📂 Project Structure
 
 ```
-├── server.ts                     # Bootstrap: config, Gemini client, HTTP + /live WebSocket, Vite/static
+├── server.ts                     # Bootstrap: config, Gemini client, HTTP server, Vite/static
+├── api/index.ts                  # Vercel serverless entry for the same Express app
 ├── server/
 │   ├── app.ts                    # Express routes, Helmet/CSP, rate limiting, error handling
 │   ├── ai.ts                     # AiGateway interface + Gemini implementation (swappable in tests)
-│   ├── live.ts                   # /live WebSocket gateway (origin check, frame validation, captions)
+│   ├── liveToken.ts              # Mints locked, single-use Gemini Live ephemeral tokens
 │   ├── validation.ts             # zod request schemas
 │   ├── prompts.ts                # Prompt builders (user input passed as fenced data, never as instructions)
 │   ├── fallbacks.ts              # Labelled reference content when Gemini is unavailable
@@ -96,6 +97,7 @@ ClaroCues applies the 5 DeafSpace principles pioneered at Gallaudet University:
 │   │   ├── FloorplanArchitect.tsx     # Drag *or* arrow-key table placement with live sightline analysis
 │   │   ├── LiveVoiceAssistantModal.tsx
 │   │   └── …                     # Budget, timeline, vendors, venues, ideas, sensory console, ASL prep
+│   ├── live/geminiLive.ts        # Browser ↔ Gemini Live session + message mapping
 │   ├── audio/pcm-capture.worklet.js   # Mic capture off the main thread
 │   └── utils/
 │       ├── accessibilityAudit.ts # Readiness scoring
@@ -143,10 +145,10 @@ PORT=3000
 ```bash
 npm run dev
 ```
-Open [http://localhost:3000](http://localhost:3000) in your browser. The Express server serves both the API endpoints (`/api/*`), WebSockets gateway (`/live-audio`), and Vite development middleware.
+Open [http://localhost:3000](http://localhost:3000) in your browser. The Express server serves the API endpoints (`/api/*`) and the Vite development middleware.
 
 ### Deploying to Vercel
-`vercel.json` serves the built SPA and runs the Express API as a serverless function (`api/index.ts`). Set `GEMINI_API_KEY` in the Vercel project's environment variables. Two limits apply: the `/live` WebSocket concierge needs a long-running server (`npm start`, Cloud Run, Render), and Vercel caps request bodies at 4.5 MB, which limits audio uploads to a few minutes.
+`vercel.json` serves the built SPA and runs the Express API as a serverless function (`api/index.ts`). Set `GEMINI_API_KEY` in the Vercel project's environment variables. The live concierge works on Vercel because the browser connects to Gemini Live directly with an ephemeral token. One limit applies: Vercel caps request bodies at 4.5 MB, which limits dictation uploads to a few minutes.
 
 ### 4. Build for Production
 ```bash
@@ -182,12 +184,12 @@ Server routes are tested with Supertest against a fake `AiGateway`, so no API ke
 
 ## 🔒 Security & Privacy
 
-- **Server-side keys**: all Gemini calls run in the server; the key never reaches the browser.
+- **Server-side keys**: Gemini calls run on the server; the live concierge gets only a short-lived, locked ephemeral token, never the API key.
 - **Input validation**: every endpoint validates its body with zod (length caps, numeric ranges, base64 and MIME allow-lists). Per-route body-size limits are 100 KB by default, 3 MB for images and 15 MB for audio.
 - **Prompt-injection hardening**: user text is passed to the model as a fenced JSON data block that the model is told to treat as data only.
 - **Output handling**: model JSON is parsed defensively and normalized, links are restricted to `http(s)`, and CSV export neutralizes spreadsheet formulas.
 - **HTTP hardening**: Helmet headers, a strict Content-Security-Policy in production, per-IP rate limiting on `/api/*`, and generic error messages with no stack traces.
-- **WebSocket**: same-origin check (plus `ALLOWED_ORIGINS`), a frame-size cap, frame-schema validation and a concurrent-session cap.
+- **Live concierge tokens**: `/api/live-token` only serves same-origin requests (plus `ALLOWED_ORIGINS`), is limited to 6 per minute per IP, and returns `no-store` tokens. Each token works once, must be used within 60 seconds, expires after 30 minutes, and has the model, instructions, voice and captions locked, so a leaked token can't be repurposed. The Origin check stops other websites but not scripted clients, so per-IP rate limits and Gemini quota alerts are the backstop.
 - **No fabricated output**: without Gemini, planning endpoints return content labelled *Offline reference*. Transcription, ASL gloss and sign recognition return an error instead of inventing text.
 - **Ephemeral media**: audio and camera frames are only sent while the user is actively recording or checking a sign, and are not stored. Microphone and camera tracks are released when no longer needed.
 
